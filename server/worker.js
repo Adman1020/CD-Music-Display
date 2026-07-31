@@ -338,15 +338,13 @@ async function processNextAlbum() {
         log(`Processing: ${workerStatus.currentAlbum}`);
         
         const settings = db.getSettings();
-        const config = db.getAllConfig();
-        
         const useAi = settings.useAiVision === true || settings.useAiVision === 'true';
         workerStatus.state = `Resolving artwork (${useAi ? 'Heuristics + AI Vision' : 'Heuristics only'})`;
         
         const result = await resolveAlbumArtwork(targetAlbum, useAi, {
-            provider: config.aiProvider,
-            key: config.aiApiKey,
-            model: config.aiModel
+            provider: db.getConfig('aiProvider'),
+            key: db.getConfig('aiApiKey'),
+            model: db.getConfig('aiModel')
         });
         
         // Save result to SQLite cache
