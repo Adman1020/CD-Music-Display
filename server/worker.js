@@ -82,7 +82,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
     const sharp = require('sharp');
     const fs = require('fs');
     const path = require('path');
-    const dataDir = path.join(__dirname, '../public/data');
+    const dataDir = path.join(__dirname, '../data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
     let coverUrl = null;

@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/data', express.static(path.join(__dirname, '../data')));
 
 // Session setup — secret is auto-generated and stored in SQLite
 app.use(session({
