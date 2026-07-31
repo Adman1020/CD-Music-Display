@@ -12,7 +12,7 @@ let startDragX = 0;
 let lastDragX = 0;
 
 const SPINE_WIDTH = 28;
-const CENTER_WIDTH = 320; // Matches the new CSS static center box width
+const CENTER_WIDTH = 300; // Matches the album-spine height exactly
 const GAP = 4;
 
 // Lazy import to avoid circular dependency
@@ -212,15 +212,11 @@ function renderShelf() {
             bg.style.backgroundImage = `url(${album.image})`;
         }
         
-        const spineFrame = document.createElement('div');
-        spineFrame.className = 'cd-spine-frame';
-        
         let text = document.createElement('div');
         text.className = 'album-spine-text';
         text.textContent = `${album.artist} — ${album.name}`;
         
         el.appendChild(bg);
-        el.appendChild(spineFrame);
         el.appendChild(text);
         
         el.addEventListener('click', () => {
