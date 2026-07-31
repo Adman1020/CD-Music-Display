@@ -310,88 +310,34 @@ body {
 /* Shelf Modes */
 
 /* Spines Mode */
-#hero-cover-container {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 320px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 50;
-    transition: opacity var(--transition);
-}
-#hero-cover-container.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-#hero-cover-img {
-    width: 320px;
-    height: 320px;
-    border-radius: var(--radius-md);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
-    object-fit: cover;
-    margin-bottom: 20px;
-    cursor: pointer;
-    transition: transform var(--transition);
-}
-#hero-cover-img:active {
-    transform: scale(0.98);
-}
-.hero-cover-info {
-    text-align: center;
-    width: 100%;
-}
-.hero-cover-info h2 {
-    font-size: 1.4rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-.hero-cover-info h3 {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
 #shelf-container.shelf-mode-spines {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    align-items: flex-end;
-    gap: 4px;
-    padding: 420px 50vw 20px 50vw;
-    scroll-snap-type: x mandatory;
+    display: block;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    height: 100%;
 }
 
 .album-spine {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     width: 28px;
     height: 300px;
     border-radius: 2px;
-    position: relative;
     overflow: hidden;
     cursor: pointer;
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     background-color: #222;
+    will-change: transform, width, left;
 }
 
 .album-spine-bg {
     position: absolute;
     inset: 0;
     background-size: cover;
-    background-position: center;
-    filter: blur(30px) saturate(1.5);
-    transform: scale(2);
+    background-position: left center;
     z-index: 0;
-    transition: filter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s;
 }
 
 .album-spine::after {
@@ -432,19 +378,28 @@ body {
     background-size: cover;
     background-position: center;
 }
-.album-spine.has-authentic-spine .album-spine-bg,
+.album-spine.has-authentic-spine .album-spine-bg {
+    opacity: 0;
+}
 .album-spine.has-authentic-spine .album-spine-text {
     opacity: 0;
 }
 
-/* Selected State */
-.album-spine.is-selected {
-    transform: translateY(-20px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
+/* Center state handled by JS */
+.album-spine.is-center {
+    z-index: 10 !important;
+    border-radius: var(--radius-md);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    background-image: none !important;
 }
 
-.album-spine.is-selected::after {
-    background: linear-gradient(to right, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 10%, rgba(0,0,0,0.4) 100%);
+.album-spine.is-center .album-spine-bg {
+    opacity: 1;
+    background-position: center;
+}
+
+.album-spine.is-center .album-spine-text {
+    opacity: 0;
 }
 
 /* Covers Mode (Horizontal Scroll) */

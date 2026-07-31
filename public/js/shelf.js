@@ -5,7 +5,18 @@ let displayMode = 'covers';
 let sortOrder = 'added';
 let autoScrollInterval;
 let spineObserver = null;
-let centerCalculateTimeout = null;
+
+// Virtual Carousel State
+let vScrollX = 0;
+let vVelocity = 0;
+let isDragging = false;
+let startDragX = 0;
+let lastDragX = 0;
+let animationFrameId = null;
+
+const SPINE_WIDTH = 28;
+const CENTER_WIDTH = 300;
+const GAP = 4;
 
 // Lazy import to avoid circular dependency
 function notify(msg, type) {
@@ -23,12 +34,44 @@ export async function initShelf() {
     });
     
     const container = document.getElementById('shelf-container');
-    container.addEventListener('scroll', () => {
+    
+    // Virtual Carousel Events
+    container.addEventListener('wheel', (e) => {
         if (displayMode === 'spines') {
-            if (centerCalculateTimeout) cancelAnimationFrame(centerCalculateTimeout);
-            centerCalculateTimeout = requestAnimationFrame(updateCenteredSpine);
+            vVelocity -= e.deltaY * 0.5;
+            vVelocity -= e.deltaX * 0.5;
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    container.addEventListener('pointerdown', (e) => {
+        if (displayMode === 'spines') {
+            isDragging = true;
+            startDragX = e.clientX;
+            lastDragX = e.clientX;
+            vVelocity = 0;
+            container.style.cursor = 'grabbing';
         }
     });
+    
+    window.addEventListener('pointermove', (e) => {
+        if (isDragging && displayMode === 'spines') {
+            const delta = e.clientX - lastDragX;
+            vScrollX += delta;
+            vVelocity = delta * 0.5; // impart some momentum
+            lastDragX = e.clientX;
+        }
+    });
+    
+    window.addEventListener('pointerup', () => {
+        if (isDragging) {
+            isDragging = false;
+            container.style.cursor = '';
+        }
+    });
+    
+    // Start animation loop
+    requestAnimationFrame(carouselLoop);
     
     // Load albums
     await loadAlbums();
@@ -171,11 +214,9 @@ function renderShelf() {
     
     if (displayMode === 'spines') {
         initSpineObserver();
-        // Give it a tiny delay for layout to finish before finding the center
-        setTimeout(updateCenteredSpine, 100);
     }
     
-    sorted.forEach(album => {
+    sorted.forEach((album, index) => {
         let el = document.createElement('div');
         
         if (displayMode === 'spines') {
@@ -184,6 +225,7 @@ function renderShelf() {
             el.dataset.name = album.name;
             el.dataset.artist = album.artist;
             el.dataset.image = album.image || '';
+            el.dataset.index = index;
             
             const bg = document.createElement('div');
             bg.className = 'album-spine-bg';
@@ -196,6 +238,17 @@ function renderShelf() {
             text.className = 'album-spine-text';
             text.textContent = `${album.artist} — ${album.name}`;
             el.appendChild(text);
+            
+            el.addEventListener('click', () => {
+                if (el.classList.contains('is-center')) {
+                    showAlbumDetail(album);
+                } else {
+                    // Smoothly scroll this item to center
+                    const totalWidth = SPINE_WIDTH + GAP;
+                    const diff = parseInt(el.dataset.relativeIndex || 0);
+                    vVelocity = -diff * totalWidth * 0.1; 
+                }
+            });
             
             spineObserver.observe(el);
             
@@ -259,44 +312,73 @@ function handlePlayAlbum() {
     }
 }
 
-function updateCenteredSpine() {
-    const container = document.getElementById('shelf-container');
-    if (!container || displayMode !== 'spines') return;
-    
-    // In our new CSS, padding-left is 50vw. The exact center of the container's visible area is container.scrollLeft.
-    // Actually, with padding 50vw, the first item is naturally at the center when scrollLeft is 0.
-    // The visual center is scrollLeft + (container.clientWidth / 2)
-    const containerCenter = container.scrollLeft + (container.clientWidth / 2);
-    
-    const spines = container.querySelectorAll('.album-spine');
-    let closestSpine = null;
-    let minDistance = Infinity;
-    
-    spines.forEach(spine => {
-        const spineCenter = spine.offsetLeft + (spine.offsetWidth / 2);
-        const distance = Math.abs(containerCenter - spineCenter);
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestSpine = spine;
+// Math-driven virtual carousel loop
+function carouselLoop() {
+    if (displayMode === 'spines' && allAlbums.length > 0) {
+        const container = document.getElementById('shelf-container');
+        if (container) {
+            const centerX = container.clientWidth / 2;
+            const numAlbums = allAlbums.length;
+            const itemWidth = SPINE_WIDTH + GAP;
+            
+            if (!isDragging) {
+                // Apply momentum
+                vScrollX += vVelocity;
+                vVelocity *= 0.90; // friction
+                
+                // Snap to nearest item if moving very slowly
+                if (Math.abs(vVelocity) < 0.5) {
+                    vVelocity = 0;
+                    const snapX = Math.round(vScrollX / itemWidth) * itemWidth;
+                    vScrollX += (snapX - vScrollX) * 0.1;
+                }
+            }
+            
+            const centerFloatIndex = -vScrollX / itemWidth;
+            const centerIndex = Math.round(centerFloatIndex);
+            
+            const spines = container.querySelectorAll('.album-spine');
+            
+            spines.forEach((spine) => {
+                const i = parseInt(spine.dataset.index);
+                
+                // Calculate shortest distance wrapped around the array length
+                let relativeIndex = i - centerIndex;
+                const half = numAlbums / 2;
+                
+                // Wrap logic for infinite loop
+                while (relativeIndex > half) relativeIndex -= numAlbums;
+                while (relativeIndex < -half) relativeIndex += numAlbums;
+                
+                spine.dataset.relativeIndex = relativeIndex;
+                
+                // Math for positioning
+                let x = centerX + (relativeIndex * itemWidth);
+                let width = SPINE_WIDTH;
+                let isCenter = false;
+                
+                if (Math.abs(relativeIndex) < 0.1) {
+                    // Exact center
+                    width = CENTER_WIDTH;
+                    isCenter = true;
+                } else if (relativeIndex > 0) {
+                    x += (CENTER_WIDTH - SPINE_WIDTH) / 2;
+                } else {
+                    x -= (CENTER_WIDTH - SPINE_WIDTH) / 2;
+                }
+                
+                // Apply inline styles to absolute positioned elements
+                spine.style.left = `${x}px`;
+                spine.style.width = `${width}px`;
+                
+                if (isCenter) {
+                    spine.classList.add('is-center');
+                } else {
+                    spine.classList.remove('is-center');
+                }
+            });
         }
-    });
-    
-    spines.forEach(spine => {
-        if (spine === closestSpine) {
-            spine.classList.add('is-selected');
-        } else {
-            spine.classList.remove('is-selected');
-        }
-    });
-    
-    if (closestSpine) {
-        document.getElementById('hero-cover-img').src = closestSpine.dataset.image;
-        document.getElementById('hero-cover-title').textContent = closestSpine.dataset.name;
-        document.getElementById('hero-cover-artist').textContent = closestSpine.dataset.artist;
-        
-        document.getElementById('hero-cover-img').onclick = () => {
-            const albumObj = allAlbums.find(a => String(a.id) === String(closestSpine.dataset.id));
-            if (albumObj) showAlbumDetail(albumObj);
-        };
     }
+    
+    requestAnimationFrame(carouselLoop);
 }
