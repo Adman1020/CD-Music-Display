@@ -7,7 +7,5 @@ services:
       - "${PORT:-3000}:3000"
     volumes:
       - ./data:/app/data
-    env_file:
-      - .env
     environment:
       - NODE_ENV=production
