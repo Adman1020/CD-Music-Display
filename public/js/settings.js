@@ -215,7 +215,7 @@ async function loadAiConfig() {
         if (res.ok) {
             const config = await res.json();
             if (config.aiProvider) document.getElementById('config-ai-provider').value = config.aiProvider;
-            if (config.aiApiKey) document.getElementById('config-ai-key').placeholder = "••••••••••••••••";
+            if (config.aiApiKey) document.getElementById('config-ai-key').placeholder = config.aiApiKey;
             if (config.aiModel) document.getElementById('config-ai-model').value = config.aiModel;
             if (config.aiRateLimit) document.getElementById('config-ai-rate').value = config.aiRateLimit;
         }

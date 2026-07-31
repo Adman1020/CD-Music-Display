@@ -24,7 +24,7 @@ router.get('/config', (req, res) => {
 router.put('/config', (req, res) => {
     try {
         const { key, value } = req.body;
-        const allowedKeys = ['spotifyClientId', 'spotifyClientSecret', 'baseUrl'];
+        const allowedKeys = ['spotifyClientId', 'spotifyClientSecret', 'baseUrl', 'aiProvider', 'aiApiKey', 'aiModel', 'aiRateLimit'];
         
         if (!key || !allowedKeys.includes(key)) {
             return res.status(400).json({ error: `Invalid config key. Allowed: ${allowedKeys.join(', ')}` });
