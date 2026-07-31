@@ -1,5 +1,7 @@
 # CD Music Display
 
+> ⚠️ **Disclaimer:** This project was entirely "vibe coded" by an AI agent (Google Antigravity). It is experimental!
+
 > A self-hosted album art display for your Spotify library. Touch-first, Dockerised, designed for Raspberry Pi.
 
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
@@ -40,7 +42,8 @@
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 2. Click on **Create app**.
 3. Set your App name and App description.
-4. Add the following **Redirect URI**: `http://localhost:3000/auth/callback` (or use your `BASE_URL` + `/auth/callback` if hosting elsewhere).
+4. Add the following **Redirect URI**: `http://127.0.0.1:3000/auth/callback` (or `http://localhost:3000/auth/callback`). 
+   *Note: If you run into issues with Spotify requiring a secure callback URL when accessing from another device on your network, use `127.0.0.1` or `localhost` and access the setup screen locally, or use SSH port forwarding.*
 5. Ensure you check **Web API** and **Web Playback SDK** in the APIs/Permissions section.
 6. Copy your **Client ID** and **Client Secret** and enter them into the app's setup screen in your browser.
 7. **Note:** A Spotify Premium account is required for playback control.
