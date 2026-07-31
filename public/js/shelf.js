@@ -234,7 +234,7 @@ function renderShelf() {
     });
 }
 
-let currentSelectedAlbum = null;
+export let currentSelectedAlbum = null;
 
 
 // Fixed-gap discrete sliding math
