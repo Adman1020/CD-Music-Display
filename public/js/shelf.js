@@ -11,6 +11,7 @@ let isDragging = false;
 let startDragX = 0;
 let lastDragX = 0;
 let dragDistance = 0;
+let isCenterPoppedOut = true;
 let overlayHideTimeout = null;
 
 const SPINE_WIDTH = 28;
@@ -162,6 +163,19 @@ async function fetchSpine(el) {
         const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
         if (res.ok) {
             const data = await res.json();
+            const w = Math.max(28, parseInt(data.spineWidth) || 28);
+            el.dataset.width = w;
+            el.style.width = `${w}px`;
+            
+            const idx = parseInt(el.dataset.index);
+            if (!isNaN(idx) && allAlbums.length > 0) {
+                const realAlbum = allAlbums[idx % allAlbums.length];
+                if (realAlbum) {
+                    realAlbum.width = w;
+                    if (data.coverUrl) realAlbum.coverUrl = data.coverUrl;
+                }
+            }
+            
             if (data.spineUrl && data.spineUrl !== '') {
                 el.style.backgroundImage = `url(${data.spineUrl})`;
                 const st = data.spineType || 'spine';
@@ -195,6 +209,22 @@ function renderShelf() {
     const centerArt = document.createElement('div');
     centerArt.id = 'center-box-art';
     centerBox.appendChild(centerArt);
+    
+    // Add Close / Fold-Away Button
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'close-center-btn';
+    closeBtn.title = 'Fold back into shelf';
+    closeBtn.innerHTML = '✕';
+    closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isCenterPoppedOut = false;
+        centerBox.classList.add('folding-away');
+        setTimeout(() => {
+            centerBox.style.display = 'none';
+            centerBox.classList.remove('folding-away');
+        }, 300);
+    });
+    centerBox.appendChild(closeBtn);
     
     // Inject the Glass Overlay Template
     const template = document.getElementById('glass-overlay-template');
@@ -281,13 +311,22 @@ function renderShelf() {
         
         el.addEventListener('click', () => {
             if (dragDistance > 5) return;
-            // Smoothly scroll this item to center
-            const itemWidth = SPINE_WIDTH + GAP;
-            const diff = parseFloat(el.dataset.relativeFloat || 0);
             
-            // Because our friction is v *= 0.9, the total distance traveled is v / (1 - 0.9) = 10v
-            // So to travel exactly -diff * itemWidth, we set vVelocity to that distance / 10.
-            vVelocity = -diff * itemWidth * 0.1; 
+            // Reopen center pop-out box if it was closed
+            const box = document.getElementById('static-center-box');
+            if (!isCenterPoppedOut || (box && box.style.display === 'none')) {
+                isCenterPoppedOut = true;
+                if (box) {
+                    box.style.display = 'block';
+                    box.classList.add('folding-out');
+                    setTimeout(() => box.classList.remove('folding-out'), 300);
+                }
+            }
+            
+            // Smoothly scroll this item to center
+            const diff = parseFloat(el.dataset.relativeFloat || 0);
+            const w = parseFloat(el.dataset.width || SPINE_WIDTH);
+            vVelocity = -diff * (w + GAP) * 0.1; 
         });
         
         spineObserver.observe(el);
@@ -346,45 +385,75 @@ function carouselLoop() {
             currentSelectedAlbum = allAlbums[centerItemIndex];
             const centerArt = document.getElementById('center-box-art');
             if (centerArt && currentSelectedAlbum) {
-                centerArt.style.backgroundImage = `url(${currentSelectedAlbum.image})`;
+                const displayCover = currentSelectedAlbum.coverUrl || currentSelectedAlbum.image;
+                centerArt.style.backgroundImage = `url(${displayCover})`;
             }
             
             const half = numAlbums / 2;
-            
-            spines.forEach((spine) => {
+            const spineItems = Array.from(spines).map(spine => {
                 const i = parseInt(spine.dataset.index);
-                
-                // Calculate discrete position relative to the current snapped center
                 let rel = i - snapC;
-                
-                // Wrap logic for infinite loop
                 while (rel > half) rel -= numAlbums;
                 while (rel < -half) rel += numAlbums;
-                
-                spine.dataset.relativeFloat = rel - offset; // For click-to-scroll tracking
-                
-                if (rel === 0) {
-                    // This is the active center item; hide it so the static box can show its cover
-                    spine.style.opacity = '0';
-                    spine.style.pointerEvents = 'none';
-                } else {
-                    spine.style.opacity = '1';
-                    spine.style.pointerEvents = 'auto';
-                    
-                    let x;
-                    if (rel > 0) {
-                        // Right block (slides left, behind the box)
-                        x = centerX + gapDist + (rel - 1 - offset) * itemWidth;
-                    } else {
-                        // Left block (slides left, out from behind the box)
-                        x = centerX - gapDist + (rel + 1 - offset) * itemWidth;
-                    }
-                    
-                    // Fixed width, pure 1D translation
-                    spine.style.left = `${x}px`;
-                    spine.style.width = `${SPINE_WIDTH}px`;
-                    spine.style.transform = `translate(-50%, -50%)`;
+                spine.dataset.relativeFloat = rel - offset;
+                const width = parseFloat(spine.dataset.width || SPINE_WIDTH);
+                return { spine, rel, width };
+            });
+
+            const centerObj = spineItems.find(item => item.rel === 0);
+            const rightList = spineItems.filter(item => item.rel > 0).sort((a, b) => a.rel - b.rel);
+            const leftList = spineItems.filter(item => item.rel < 0).sort((a, b) => b.rel - a.rel);
+
+            const centerW = centerObj ? centerObj.width : SPINE_WIDTH;
+            const avgSlideStep = centerW + GAP; 
+            const slideOffset = offset * avgSlideStep;
+
+            let curXRight, curXLeft;
+
+            const boxEl = document.getElementById('static-center-box');
+            const actuallyPopped = isCenterPoppedOut && (!boxEl || boxEl.style.display !== 'none');
+
+            if (actuallyPopped) {
+                if (centerObj) {
+                    centerObj.spine.style.opacity = '0';
+                    centerObj.spine.style.pointerEvents = 'none';
                 }
+                curXRight = centerX + (CENTER_WIDTH / 2) + GAP - slideOffset;
+                curXLeft = centerX - (CENTER_WIDTH / 2) - GAP - slideOffset;
+            } else {
+                if (centerObj) {
+                    centerObj.spine.style.opacity = '1';
+                    centerObj.spine.style.pointerEvents = 'auto';
+                    const x0 = centerX - slideOffset;
+                    centerObj.spine.style.left = `${x0}px`;
+                    centerObj.spine.style.width = `${centerObj.width}px`;
+                    centerObj.spine.style.transform = `translate(-50%, -50%)`;
+                }
+                const x0 = centerX - slideOffset;
+                curXRight = x0 + (centerW / 2) + GAP;
+                curXLeft = x0 - (centerW / 2) - GAP;
+            }
+
+            // Stack variable-width items outwards to the right
+            rightList.forEach(item => {
+                item.spine.style.opacity = '1';
+                item.spine.style.pointerEvents = 'auto';
+                const x = curXRight + (item.width / 2);
+                item.spine.style.left = `${x}px`;
+                item.spine.style.width = `${item.width}px`;
+                item.spine.style.transform = `translate(-50%, -50%)`;
+                curXRight += item.width + GAP;
+            });
+
+            // Stack variable-width items outwards to the left (-1, -2, -3...)
+            leftList.forEach(item => {
+                item.spine.style.opacity = '1';
+                item.spine.style.pointerEvents = 'auto';
+                const x = curXLeft - (item.width / 2);
+                item.spine.style.left = `${x}px`;
+                item.spine.style.width = `${item.width}px`;
+                item.spine.style.transform = `translate(-50%, -50%)`;
+                curXLeft -= (item.width + GAP);
             });
         }
     }

@@ -448,6 +448,68 @@ body {
     transform: translate(-50%, -48%) scale(0.98);
 }
 
+/* Close Center Button (Top Right of Cover) */
+#close-center-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 105;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+#close-center-btn:hover {
+    background: rgba(220, 38, 38, 0.9);
+    border-color: #fff;
+    transform: scale(1.1);
+}
+
+/* Folding Animations for Center Box */
+#static-center-box.folding-away {
+    animation: foldInToSpine 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+#static-center-box.folding-out {
+    animation: foldOutFromSpine 0.3s cubic-bezier(0.0, 0, 0.2, 1) forwards;
+}
+
+@keyframes foldInToSpine {
+    0% {
+        width: 300px;
+        opacity: 1;
+        transform: translate(-50%, -50%) rotateY(0deg);
+    }
+    100% {
+        width: 28px;
+        opacity: 0;
+        transform: translate(-50%, -50%) rotateY(80deg);
+    }
+}
+
+@keyframes foldOutFromSpine {
+    0% {
+        width: 28px;
+        opacity: 0;
+        transform: translate(-50%, -50%) rotateY(80deg);
+    }
+    100% {
+        width: 300px;
+        opacity: 1;
+        transform: translate(-50%, -50%) rotateY(0deg);
+    }
+}
+
 /* The Album Art Inside the Box */
 #center-box-art {
     position: absolute;

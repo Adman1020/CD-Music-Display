@@ -68,7 +68,6 @@ async function cropImageWithSharp(imageUrl, type, albumId) {
 // Sanitization Helper
 // ----------------------------------------------------------------------
 function sanitizeAlbumName(name) {
-    // Strip common Spotify suffixes that break MusicBrainz
     return name
         .replace(/\(.*?remaster.*?\)/i, '')
         .replace(/\(.*?deluxe.*?\)/i, '')
@@ -79,187 +78,210 @@ function sanitizeAlbumName(name) {
         .trim();
 }
 
-// ----------------------------------------------------------------------
-// MusicBrainz & Cover Art Archive Fetch
-// ----------------------------------------------------------------------
-async function fetchSpineHeuristically(albumName, artistName) {
-    const name = sanitizeAlbumName(albumName);
-    const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(artistName)}"&fmt=json`;
-    
-    const mbRes = await fetch(mbUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0 ( local@local.com )' } });
-    if (!mbRes.ok) throw new Error('MusicBrainz API error');
-    
-    const mbData = await mbRes.json();
-    if (!mbData.releases || mbData.releases.length === 0) {
-        throw new Error(`No MusicBrainz match for "${name}"`);
-    }
-    
-    const mbid = mbData.releases[0].id;
-    const caaUrl = `https://coverartarchive.org/release/${mbid}`;
-    const caaRes = await fetch(caaUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0' } });
-    
-    if (!caaRes.ok) throw new Error(`No CoverArtArchive found for MBID ${mbid}`);
-    
-    const caaData = await caaRes.json();
-    const images = caaData.images || [];
-    
-    const getUrl = (img) => {
-        if (img.thumbnails && img.thumbnails['500']) return img.thumbnails['500'];
-        return img.image;
-    };
-    
-    const spineImg = images.find(img => img.types && img.types.includes('Spine'));
-    if (spineImg) {
-        return { url: getUrl(spineImg), type: 'spine' };
-    }
-    
-    const backImg = images.find(img => img.types && img.types.includes('Back'));
-    if (backImg) {
-        return { url: getUrl(backImg), type: 'back' };
-    }
-    
-    throw new Error('No Spine or Back image found in CAA');
-}
+async function resolveAlbumArtwork(album, useAi, aiConfig) {
+    const sharp = require('sharp');
+    const fs = require('fs');
+    const path = require('path');
+    const dataDir = path.join(__dirname, '../public/data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// ----------------------------------------------------------------------
-// AI Vision Pipeline
-// ----------------------------------------------------------------------
-async function fetchSpineWithAI(album, aiConfig) {
-    log(`AI processing requested via ${aiConfig.provider} using ${aiConfig.model}`);
-    
-    // First, we need an image that might contain a spine. We use CAA.
-    const name = sanitizeAlbumName(album.name);
-    const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(album.artist)}"&fmt=json`;
-    const mbRes = await fetch(mbUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0' } });
-    
-    if (!mbRes.ok) throw new Error('MusicBrainz API error');
-    const mbData = await mbRes.json();
-    if (!mbData.releases || mbData.releases.length === 0) throw new Error('No release found in MB');
-    
-    const mbid = mbData.releases[0].id;
-    const caaUrl = `https://coverartarchive.org/release/${mbid}`;
-    const caaRes = await fetch(caaUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0' } });
-    if (!caaRes.ok) throw new Error('No Cover Art Archive found');
-    
-    const caaData = await caaRes.json();
-    const images = caaData.images || [];
-    
-    // Grab the first high-res back or unclassified image
-    const targetImage = images.find(img => img.types && (img.types.includes('Back') || img.types.includes('Spine') || img.types.includes('Other') || img.types.length === 0));
-    
-    if (!targetImage) throw new Error('No suitable candidate images to send to AI');
-    const imageUrl = targetImage.image;
-    
-    log(`Downloading candidate image for AI: ${imageUrl}`);
-    
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) throw new Error('Failed to download image for AI');
-    const arrayBuffer = await imgRes.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    
-    log(`Sending image to ${aiConfig.provider} (${aiConfig.model})...`);
-    
-    const prompt = "This is a CD jewel case scan. Find the CD spine (the long thin strip with the artist and album name). Reply ONLY with a valid JSON object in this format: { \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } } where the values are percentages from 0.0 to 1.0 of the image dimensions. If there is no spine, return {}. Do not include markdown blocks.";
-    
-    let jsonText = "";
-    
-    if (aiConfig.provider === 'openai') {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiConfig.key}` },
-            body: JSON.stringify({
-                model: aiConfig.model,
-                response_format: { type: "json_object" },
-                messages: [{
-                    role: "user",
-                    content: [
-                        { type: "text", text: prompt },
-                        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
-                    ]
-                }]
-            })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-        jsonText = data.choices[0].message.content;
-    } 
-    else if (aiConfig.provider === 'gemini') {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiConfig.model}:generateContent?key=${aiConfig.key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        { inline_data: { mime_type: "image/jpeg", data: base64 } }
-                    ]
-                }]
-            })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-        jsonText = data.candidates[0].content.parts[0].text;
-    }
-    else if (aiConfig.provider === 'claude') {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': aiConfig.key, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify({
-                model: aiConfig.model,
-                max_tokens: 1024,
-                messages: [{
-                    role: "user",
-                    content: [
-                        { type: "text", text: prompt },
-                        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } }
-                    ]
-                }]
-            })
-        });
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-        jsonText = data.content[0].text;
-    }
-    
-    // Parse JSON
+    let coverUrl = null;
+    let spineUrl = null;
+    let spineType = 'none';
+    let spineWidth = 28;
+    let usedAi = false;
+
     try {
-        jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(jsonText);
+        const name = sanitizeAlbumName(album.name);
+        // Explicitly filter for CD format to avoid cassette / vinyl packaging
+        const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(album.artist)}" AND format:CD&fmt=json`;
+        const mbRes = await fetch(mbUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0 ( local@local.com )' } });
+        if (!mbRes.ok) throw new Error('MusicBrainz API error');
         
-        if (!parsed.box || !parsed.box.width) {
-            throw new Error("AI did not find a spine in the image");
+        const mbData = await mbRes.json();
+        if (!mbData.releases || mbData.releases.length === 0) {
+            throw new Error(`No CD release found in MusicBrainz for "${name}"`);
         }
         
-        log(`AI found spine at x=${parsed.box.x} y=${parsed.box.y}`);
+        const mbid = mbData.releases[0].id;
+        const caaUrl = `https://coverartarchive.org/release/${mbid}`;
+        const caaRes = await fetch(caaUrl, { headers: { 'User-Agent': 'CDMusicDisplay/1.0' } });
+        if (!caaRes.ok) throw new Error(`No Cover Art Archive images for MBID ${mbid}`);
         
-        // Use Sharp to crop the image
-        const sharp = require('sharp');
-        const img = sharp(Buffer.from(arrayBuffer));
-        const metadata = await img.metadata();
-        
-        const cropX = Math.floor(parsed.box.x * metadata.width);
-        const cropY = Math.floor(parsed.box.y * metadata.height);
-        const cropW = Math.floor(parsed.box.width * metadata.width);
-        const cropH = Math.floor(parsed.box.height * metadata.height);
-        
-        const croppedBuffer = await img
-            .extract({ left: cropX, top: cropY, width: cropW, height: cropH })
-            .toBuffer();
-            
-        // Save locally
-        const fs = require('fs');
-        const path = require('path');
-        const dataDir = path.join(__dirname, '../public/data');
-        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        
-        const filename = `spine_${album.id}.jpg`;
-        fs.writeFileSync(path.join(dataDir, filename), croppedBuffer);
-        
-        return { url: `/data/${filename}`, type: 'ai_crop' };
-        
-    } catch (e) {
-        throw new Error(`AI JSON parsing failed: ${e.message}`);
+        const caaData = await caaRes.json();
+        const images = caaData.images || [];
+
+        const getUrl = (img) => {
+            if (img.thumbnails && img.thumbnails['500']) return img.thumbnails['500'];
+            if (img.thumbnails && img.thumbnails['250']) return img.thumbnails['250'];
+            return img.image;
+        };
+
+        // 1. Resolve Cover Artwork (Independent)
+        const frontImg = images.find(img => img.types && img.types.includes('Front'));
+        if (frontImg) {
+            try {
+                log(`Downloading and padding square Front Cover for ${name}...`);
+                const frontRes = await fetch(getUrl(frontImg));
+                if (frontRes.ok) {
+                    const buf = Buffer.from(await frontRes.arrayBuffer());
+                    const filename = `cover_${album.id}.jpg`;
+                    await sharp(buf)
+                        .resize({ width: 300, height: 300, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
+                        .toFile(path.join(dataDir, filename));
+                    coverUrl = `/data/${filename}`;
+                }
+            } catch (ce) {
+                log(`Cover art padding failed, falling back to Spotify cover: ${ce.message}`);
+            }
+        }
+        if (!coverUrl) {
+            coverUrl = album.image || null;
+        }
+
+        // 2. Resolve Spine Artwork via Explicit CAA Tag
+        const spineImg = images.find(img => img.types && img.types.includes('Spine'));
+        if (spineImg) {
+            log(`Heuristic explicit Spine scan found on Cover Art Archive for ${name}!`);
+            try {
+                const sRes = await fetch(getUrl(spineImg));
+                if (sRes.ok) {
+                    const buf = Buffer.from(await sRes.arrayBuffer());
+                    const img = sharp(buf);
+                    const metadata = await img.metadata();
+                    // Calculate exact proportional width when scaled to 300px height
+                    const calcWidth = Math.max(28, Math.round(300 * (metadata.width / metadata.height)));
+                    const filename = `spine_${album.id}.jpg`;
+                    await img.resize({ width: calcWidth, height: 300, fit: 'fill' }).toFile(path.join(dataDir, filename));
+                    spineUrl = `/data/${filename}`;
+                    spineType = 'spine';
+                    spineWidth = calcWidth;
+                    return { coverUrl, spineUrl, spineType, spineWidth, usedAi: false };
+                }
+            } catch (se) {
+                log(`Explicit spine image processing failed: ${se.message}`);
+            }
+        }
+
+        // 3. AI Vision Fallback (if no explicit spine scan was found)
+        if (useAi && aiConfig && aiConfig.provider && aiConfig.key && !spineUrl) {
+            log(`No explicit spine image found. Kicking into AI Vision analysis...`);
+            const targetImage = images.find(img => img.types && (img.types.includes('Back') || img.types.includes('Tray') || img.types.includes('Other') || img.types.length === 0));
+            if (targetImage) {
+                try {
+                    const candidateUrl = targetImage.image;
+                    log(`Downloading candidate CD scan for AI analysis: ${candidateUrl}`);
+                    const imgRes = await fetch(candidateUrl);
+                    if (imgRes.ok) {
+                        const arrayBuffer = await imgRes.arrayBuffer();
+                        const base64 = Buffer.from(arrayBuffer).toString('base64');
+                        
+                        log(`Sending candidate scan to ${aiConfig.provider} (${aiConfig.model})...`);
+                        const prompt = "This is a CD jewel case scan (back traycard, booklet, or fold). Find the physical CD spine (the long thin strip containing artist and album title). Reply ONLY with a valid JSON object in this exact format: { \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } } where values are fractions from 0.0 to 1.0 of total image dimensions. If there is no spine, return {}. Do not include markdown or explanations.";
+                        let jsonText = "";
+                        usedAi = true;
+
+                        if (aiConfig.provider === 'openai') {
+                            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiConfig.key}` },
+                                body: JSON.stringify({
+                                    model: aiConfig.model,
+                                    response_format: { type: "json_object" },
+                                    messages: [{
+                                        role: "user",
+                                        content: [
+                                            { type: "text", text: prompt },
+                                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } }
+                                        ]
+                                    }]
+                                })
+                            });
+                            const data = await res.json();
+                            if (data.error) throw new Error(data.error.message);
+                            jsonText = data.choices[0].message.content;
+                        } 
+                        else if (aiConfig.provider === 'gemini') {
+                            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiConfig.model}:generateContent?key=${aiConfig.key}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{
+                                        parts: [
+                                            { text: prompt },
+                                            { inline_data: { mime_type: "image/jpeg", data: base64 } }
+                                        ]
+                                    }]
+                                })
+                            });
+                            const data = await res.json();
+                            if (data.error) throw new Error(data.error.message);
+                            jsonText = data.candidates[0].content.parts[0].text;
+                        }
+                        else if (aiConfig.provider === 'claude') {
+                            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'x-api-key': aiConfig.key, 'anthropic-version': '2023-06-01' },
+                                body: JSON.stringify({
+                                    model: aiConfig.model,
+                                    max_tokens: 1024,
+                                    messages: [{
+                                        role: "user",
+                                        content: [
+                                            { type: "text", text: prompt },
+                                            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } }
+                                        ]
+                                    }]
+                                })
+                            });
+                            const data = await res.json();
+                            if (data.error) throw new Error(data.error.message);
+                            jsonText = data.content[0].text;
+                        }
+                        
+                        jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+                        const parsed = JSON.parse(jsonText);
+                        
+                        if (parsed.box && parsed.box.width > 0 && parsed.box.height > 0) {
+                            log(`AI successfully localized spine bounding box! Cropping image...`);
+                            const img = sharp(Buffer.from(arrayBuffer));
+                            const metadata = await img.metadata();
+                            const cropX = Math.max(0, Math.floor(parsed.box.x * metadata.width));
+                            const cropY = Math.max(0, Math.floor(parsed.box.y * metadata.height));
+                            const cropW = Math.min(metadata.width - cropX, Math.floor(parsed.box.width * metadata.width));
+                            const cropH = Math.min(metadata.height - cropY, Math.floor(parsed.box.height * metadata.height));
+                            
+                            if (cropW > 5 && cropH > 5) {
+                                const calcWidth = Math.max(28, Math.round(300 * (cropW / cropH)));
+                                const filename = `spine_${album.id}.jpg`;
+                                await img.extract({ left: cropX, top: cropY, width: cropW, height: cropH })
+                                    .resize({ width: calcWidth, height: 300, fit: 'fill' })
+                                    .toFile(path.join(dataDir, filename));
+                                spineUrl = `/data/${filename}`;
+                                spineType = 'ai_crop';
+                                spineWidth = calcWidth;
+                                return { coverUrl, spineUrl, spineType, spineWidth, usedAi: true };
+                            }
+                        } else {
+                            log("AI did not detect a spine bounding box in this scan.");
+                        }
+                    }
+                } catch (aie) {
+                    log(`AI Vision processing error: ${aie.message}`);
+                }
+            } else {
+                log("No candidate back or traycard images available for AI evaluation.");
+            }
+        }
+
+    } catch (err) {
+        log(`Artwork lookup error for ${album.name}: ${err.message}`);
     }
+
+    // 4. Ultimate Fallback: No spine image found, fall back to default left-edge crop of Cover Art
+    if (!coverUrl) coverUrl = album.image || null;
+    log(`Using fallback left-edge slice with text overlay at standard width (28px).`);
+    return { coverUrl, spineUrl: '', spineType: 'none', spineWidth: 28, usedAi };
 }
 
 // ----------------------------------------------------------------------
@@ -297,7 +319,7 @@ async function processNextAlbum() {
             return;
         }
         
-        workerStatus.state = "Active (Extracting Spines)";
+        workerStatus.state = "Active (Extracting Spines & Cover Art)";
         workerStatus.currentAlbum = `${targetAlbum.artist} - ${targetAlbum.name}`;
         log(`Processing: ${workerStatus.currentAlbum}`);
         
@@ -305,47 +327,27 @@ async function processNextAlbum() {
         const config = db.getAllConfig();
         
         const useAi = settings.useAiVision === true || settings.useAiVision === 'true';
-        let result = null;
-        let aiFailed = false;
+        workerStatus.state = `Resolving artwork (${useAi ? 'Heuristics + AI Vision' : 'Heuristics only'})`;
         
-        if (useAi && config.aiProvider && config.aiApiKey) {
-            try {
-                workerStatus.state = `AI Extraction (${config.aiProvider} : ${config.aiModel || 'default'})`;
-                result = await fetchSpineWithAI(targetAlbum, {
-                    provider: config.aiProvider,
-                    key: config.aiApiKey,
-                    model: config.aiModel
-                });
-            } catch (e) {
-                log(`AI Failed: ${e.message}. Falling back to Heuristics.`);
-                aiFailed = true;
-            }
-        }
+        const result = await resolveAlbumArtwork(targetAlbum, useAi, {
+            provider: config.aiProvider,
+            key: config.aiApiKey,
+            model: config.aiModel
+        });
         
-        if (!result) {
-            try {
-                workerStatus.state = "Heuristic Extraction (MusicBrainz/CAA)";
-                result = await fetchSpineHeuristically(targetAlbum.name, targetAlbum.artist);
-                log(`Heuristic Success: Found [${result.type}] image`);
-            } catch (e) {
-                log(`Heuristic Failed: ${e.message}`);
-                result = { url: null, type: 'none' };
-            }
-        }
-        
-        // Save result
-        db.setSpineCache(targetAlbum.id, result.url, result.type);
+        // Save result to SQLite cache
+        db.setSpineCache(targetAlbum.id, result.spineUrl, result.spineType, result.spineWidth, result.coverUrl);
         workerStatus.processedCount = db.getSpineCount();
         
-        // Determine delay
-        let delayMs = 3000; // Default safe rate limit for MusicBrainz
-        if (useAi && !aiFailed && config.aiRateLimit) {
+        // Determine courteous rate limit delay
+        let delayMs = 3000; // Default safe rate limit for Cover Art Archive & MusicBrainz
+        if (result.usedAi && config.aiRateLimit) {
             const reqPerMin = parseInt(config.aiRateLimit, 10) || 1;
-            delayMs = (60 / reqPerMin) * 1000;
+            delayMs = Math.max(3000, (60 / reqPerMin) * 1000);
         }
         
         workerStatus.state = `Waiting (${Math.round(delayMs/1000)}s rate limit delay)...`;
-        log(`Waiting ${Math.round(delayMs/1000)}s before next...`);
+        log(`Waiting ${Math.round(delayMs/1000)}s before next album...`);
         timerId = setTimeout(processNextAlbum, delayMs);
         
     } catch (e) {

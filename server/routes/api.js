@@ -167,11 +167,11 @@ router.get('/albums/:id/spine', async (req, res) => {
         // 1. Check cache
         const cached = db.getSpineCache(spotifyId);
         if (cached) {
-            return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null });
+            return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null, spineWidth: cached.spineWidth || 28, coverUrl: cached.coverUrl || null });
         }
         
-        // 2. Fetch MBID from MusicBrainz
-        const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(artist)}"&fmt=json`;
+        // 2. Fetch MBID from MusicBrainz (strictly CD formatting)
+        const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(artist)}" AND format:CD&fmt=json`;
         
         const mbRes = await fetch(mbUrl, {
             headers: { 'User-Agent': 'CDMusicDisplay/1.0 ( local@local.com )' }
@@ -204,9 +204,10 @@ router.get('/albums/:id/spine', async (req, res) => {
         
         const caaData = await caaRes.json();
         
-        // 4. Find spine or back image
+        // 4. Find spine, cover, or back image
         let spineUrl = null;
         let spineType = 'none';
+        let coverUrl = null;
         const images = caaData.images || [];
         
         const getUrl = (img) => {
@@ -214,6 +215,9 @@ router.get('/albums/:id/spine', async (req, res) => {
             if (img.thumbnails && img.thumbnails['250']) return img.thumbnails['250'];
             return img.image;
         };
+        
+        const frontImg = images.find(img => img.types && img.types.includes('Front'));
+        if (frontImg) coverUrl = getUrl(frontImg);
         
         const spineImg = images.find(img => img.types && img.types.includes('Spine'));
         if (spineImg) {
@@ -227,8 +231,8 @@ router.get('/albums/:id/spine', async (req, res) => {
             }
         }
         
-        db.setSpineCache(spotifyId, spineUrl, spineType);
-        res.json({ spineUrl, spineType });
+        db.setSpineCache(spotifyId, spineUrl, spineType, 28, coverUrl);
+        res.json({ spineUrl, spineType, spineWidth: 28, coverUrl });
         
     } catch (e) {
         console.error("[CD-Display] Spine fetch error for", req.query.name, e.message);
