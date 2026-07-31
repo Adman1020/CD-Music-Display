@@ -3,8 +3,17 @@ const fs = require('fs');
 const path = require('path');
 
 let isRunning = false;
+let timerId = null;
 const logs = [];
-const MAX_LOGS = 100;
+const MAX_LOGS = 250;
+
+const workerStatus = {
+    state: "Idle (Booting)",
+    totalAlbums: 0,
+    processedCount: 0,
+    currentAlbum: null,
+    lastAction: "Initializing worker..."
+};
 
 function log(msg) {
     const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
@@ -12,10 +21,22 @@ function log(msg) {
     console.log(`[Worker] ${formatted}`);
     logs.push(formatted);
     if (logs.length > MAX_LOGS) logs.shift();
+    workerStatus.lastAction = msg;
 }
 
 function getLogs() {
     return [...logs];
+}
+
+function getStatus() {
+    try {
+        workerStatus.processedCount = db.getSpineCount();
+        const cached = db.getCachedAlbums();
+        if (cached && cached.albums) {
+            workerStatus.totalAlbums = cached.albums.length;
+        }
+    } catch (e) {}
+    return { ...workerStatus, isRunning };
 }
 
 // ----------------------------------------------------------------------
@@ -246,20 +267,19 @@ async function fetchSpineWithAI(album, aiConfig) {
 // ----------------------------------------------------------------------
 async function processNextAlbum() {
     if (!isRunning) return;
+    if (timerId) { clearTimeout(timerId); timerId = null; }
     
     try {
         const cachedAlbumsData = db.getCachedAlbums();
         if (!cachedAlbumsData || !cachedAlbumsData.albums) {
-            setTimeout(processNextAlbum, 10000);
+            workerStatus.state = "Waiting for Spotify albums cache...";
+            timerId = setTimeout(processNextAlbum, 10000);
             return;
         }
         
         const albums = cachedAlbumsData.albums;
-        
-        // Find one album that hasn't been checked yet (spine_url is NULL)
-        // Note: Our current schema sets spine_url to '' on failure, so we look for exactly NULL
-        // Wait, SQLite doesn't have a direct way to map object array without a full DB table.
-        // We can just iterate through albums in memory and check if they exist in `album_spines`.
+        workerStatus.totalAlbums = albums.length;
+        workerStatus.processedCount = db.getSpineCount();
         
         let targetAlbum = null;
         for (const album of albums) {
@@ -271,12 +291,15 @@ async function processNextAlbum() {
         }
         
         if (!targetAlbum) {
-            // All albums processed
-            setTimeout(processNextAlbum, 60000); // Check again in a minute
+            workerStatus.state = "Idle (All library albums processed)";
+            workerStatus.currentAlbum = null;
+            timerId = setTimeout(processNextAlbum, 60000); // Check again in a minute
             return;
         }
         
-        log(`Processing: ${targetAlbum.artist} - ${targetAlbum.name}`);
+        workerStatus.state = "Active (Extracting Spines)";
+        workerStatus.currentAlbum = `${targetAlbum.artist} - ${targetAlbum.name}`;
+        log(`Processing: ${workerStatus.currentAlbum}`);
         
         const settings = db.getSettings();
         const config = db.getAllConfig();
@@ -287,6 +310,7 @@ async function processNextAlbum() {
         
         if (useAi && config.aiProvider && config.aiApiKey) {
             try {
+                workerStatus.state = `AI Extraction (${config.aiProvider} : ${config.aiModel || 'default'})`;
                 result = await fetchSpineWithAI(targetAlbum, {
                     provider: config.aiProvider,
                     key: config.aiApiKey,
@@ -300,6 +324,7 @@ async function processNextAlbum() {
         
         if (!result) {
             try {
+                workerStatus.state = "Heuristic Extraction (MusicBrainz/CAA)";
                 result = await fetchSpineHeuristically(targetAlbum.name, targetAlbum.artist);
                 log(`Heuristic Success: Found [${result.type}] image`);
             } catch (e) {
@@ -310,6 +335,7 @@ async function processNextAlbum() {
         
         // Save result
         db.setSpineCache(targetAlbum.id, result.url, result.type);
+        workerStatus.processedCount = db.getSpineCount();
         
         // Determine delay
         let delayMs = 3000; // Default safe rate limit for MusicBrainz
@@ -318,12 +344,14 @@ async function processNextAlbum() {
             delayMs = (60 / reqPerMin) * 1000;
         }
         
+        workerStatus.state = `Waiting (${Math.round(delayMs/1000)}s rate limit delay)...`;
         log(`Waiting ${Math.round(delayMs/1000)}s before next...`);
-        setTimeout(processNextAlbum, delayMs);
+        timerId = setTimeout(processNextAlbum, delayMs);
         
     } catch (e) {
         log(`Worker crash: ${e.message}`);
-        setTimeout(processNextAlbum, 10000);
+        workerStatus.state = `Error: ${e.message}`;
+        timerId = setTimeout(processNextAlbum, 10000);
     }
 }
 
@@ -336,11 +364,28 @@ function start() {
 
 function stop() {
     isRunning = false;
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    workerStatus.state = "Stopped";
     log('Background Spine Worker stopped');
+}
+
+function reprocessAll() {
+    log('User initiated Reprocess Library with AI!');
+    db.clearSpineCache();
+    workerStatus.processedCount = 0;
+    workerStatus.state = "Restarting library processing...";
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    if (isRunning) {
+        processNextAlbum();
+    } else {
+        start();
+    }
 }
 
 module.exports = {
     start,
     stop,
-    getLogs
+    getLogs,
+    getStatus,
+    reprocessAll
 };

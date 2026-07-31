@@ -209,6 +209,13 @@ module.exports = {
     setSpineCache: (spotifyId, spineUrl, spineType = null) => {
         db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, last_checked) VALUES (?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType);
     },
+    clearSpineCache: () => {
+        db.prepare('DELETE FROM album_spines').run();
+    },
+    getSpineCount: () => {
+        const res = db.prepare('SELECT COUNT(*) as count FROM album_spines').get();
+        return res ? res.count : 0;
+    },
 
     // Token storage (encrypted)
     saveTokens: (accessToken, refreshToken, expiresInSeconds) => {

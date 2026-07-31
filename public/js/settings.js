@@ -50,11 +50,43 @@ export async function initSettings() {
     // AI config toggle & save button
     const aiToggle = document.getElementById('config-ai-toggle');
     const aiContainer = document.getElementById('ai-settings-container');
+    const diagBtn = document.getElementById('btn-open-worker-diagnostics');
     aiToggle.addEventListener('change', (e) => {
         aiContainer.style.display = e.target.checked ? 'block' : 'none';
+        if (diagBtn) diagBtn.style.display = e.target.checked ? 'block' : 'none';
         saveSetting('useAiVision', e.target.checked ? 'true' : 'false');
     });
     document.getElementById('btn-save-ai').addEventListener('click', saveAiConfig);
+    
+    // AI Worker Diagnostics modal handlers
+    const workerModal = document.getElementById('ai-worker-modal');
+    if (diagBtn && workerModal) {
+        diagBtn.addEventListener('click', () => {
+            workerModal.classList.remove('hidden');
+            workerModal.style.display = 'flex';
+            pollWorkerLogs(true);
+        });
+        const closeWorkerModal = () => {
+            workerModal.classList.add('hidden');
+            workerModal.style.display = 'none';
+        };
+        document.getElementById('btn-close-worker-modal').addEventListener('click', closeWorkerModal);
+        document.getElementById('btn-done-worker').addEventListener('click', closeWorkerModal);
+    }
+    
+    const reprocessBtn = document.getElementById('btn-reprocess-spines');
+    if (reprocessBtn) {
+        reprocessBtn.addEventListener('click', async () => {
+            const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
+            try {
+                await fetch('/api/worker/reprocess', { method: 'POST' });
+                notify('Library spine reprocessing triggered with current AI settings!');
+                pollWorkerLogs(true);
+            } catch(e) {
+                notify('Failed to trigger reprocessing', 'error');
+            }
+        });
+    }
     
     // Load existing settings & config
     await loadSettings();
@@ -102,6 +134,8 @@ async function loadSettings() {
             if (settings.useAiVision === 'true') {
                 document.getElementById('config-ai-toggle').checked = true;
                 document.getElementById('ai-settings-container').style.display = 'block';
+                const diagBtn = document.getElementById('btn-open-worker-diagnostics');
+                if (diagBtn) diagBtn.style.display = 'block';
             }
 
         }
@@ -204,9 +238,13 @@ async function saveAiConfig() {
         if (model) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiModel', value: model }) });
         if (rateLimit) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiRateLimit', value: rateLimit }) });
         
-        notify('AI Configuration saved. Restart the container if worker is stuck.');
+        // Trigger worker restart/reprocess automatically
+        await fetch('/api/worker/reprocess', { method: 'POST' });
+        
+        notify('AI Configuration saved and Worker restarted!');
         document.getElementById('config-ai-key').value = '';
         await loadAiConfig();
+        pollWorkerLogs(true);
     } catch (e) {
         console.error("Failed to save AI config", e);
         notify('Failed to save AI configuration', 'error');
@@ -214,23 +252,56 @@ async function saveAiConfig() {
 }
 
 let lastLogLines = 0;
-async function pollWorkerLogs() {
+let lastDiagLogLines = 0;
+async function pollWorkerLogs(force = false) {
     const panel = document.getElementById('settings-panel');
-    if (!panel.classList.contains('open')) return;
+    const modal = document.getElementById('ai-worker-modal');
+    const isPanelOpen = panel && panel.classList.contains('open');
+    const isModalOpen = modal && !modal.classList.contains('hidden');
+    
+    if (!isPanelOpen && !isModalOpen && !force) return;
     
     try {
         const res = await fetch('/api/worker/logs');
         if (res.ok) {
             const data = await res.json();
-            const logBox = document.getElementById('worker-logs');
-            if (data.logs && data.logs.length > 0) {
-                if (data.logs.length !== lastLogLines) {
-                    logBox.textContent = data.logs.join('\n');
-                    logBox.scrollTop = logBox.scrollHeight;
-                    lastLogLines = data.logs.length;
+            
+            // Update small settings box
+            if (isPanelOpen) {
+                const logBox = document.getElementById('worker-logs');
+                if (logBox && data.logs && data.logs.length > 0) {
+                    if (data.logs.length !== lastLogLines || force) {
+                        logBox.textContent = data.logs.join('\n');
+                        logBox.scrollTop = logBox.scrollHeight;
+                        lastLogLines = data.logs.length;
+                    }
+                } else if (logBox) {
+                    logBox.textContent = "No logs yet...";
                 }
-            } else {
-                logBox.textContent = "No logs yet...";
+            }
+            
+            // Update Diagnostics modal
+            if (isModalOpen || force) {
+                const diagState = document.getElementById('diag-worker-state');
+                const diagProgress = document.getElementById('diag-worker-progress');
+                const diagAction = document.getElementById('diag-worker-action');
+                const diagConsole = document.getElementById('diag-console');
+                
+                if (data.status) {
+                    if (diagState) diagState.textContent = data.status.state || "Active";
+                    if (diagProgress) diagProgress.textContent = `${data.status.processedCount || 0} / ${data.status.totalAlbums || 0} Albums`;
+                    if (diagAction) diagAction.textContent = data.status.lastAction || "Idle";
+                }
+                
+                if (diagConsole && data.logs && data.logs.length > 0) {
+                    if (data.logs.length !== lastDiagLogLines || force) {
+                        diagConsole.textContent = data.logs.join('\n');
+                        diagConsole.scrollTop = diagConsole.scrollHeight;
+                        lastDiagLogLines = data.logs.length;
+                    }
+                } else if (diagConsole) {
+                    diagConsole.textContent = "No worker logs recorded yet...";
+                }
             }
         }
     } catch (e) {

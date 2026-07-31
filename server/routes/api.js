@@ -231,13 +231,24 @@ router.get('/albums/:id/spine', async (req, res) => {
     }
 });
 
-// GET /worker/logs - Returns the background worker logs
+// GET /worker/logs - Returns the background worker logs and status
 router.get('/worker/logs', (req, res) => {
     try {
         const worker = require('../worker');
-        res.json({ logs: worker.getLogs() });
+        res.json({ logs: worker.getLogs(), status: worker.getStatus() });
     } catch (e) {
-        res.json({ logs: [] });
+        res.json({ logs: [], status: {} });
+    }
+});
+
+// POST /worker/reprocess - Triggers a fresh scan of all albums with current settings
+router.post('/worker/reprocess', (req, res) => {
+    try {
+        const worker = require('../worker');
+        worker.reprocessAll();
+        res.json({ success: true, status: worker.getStatus() });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
