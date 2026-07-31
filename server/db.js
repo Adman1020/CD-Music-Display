@@ -35,6 +35,11 @@ db.exec(`
         refresh_token TEXT,
         expires_at DATETIME
     );
+    CREATE TABLE IF NOT EXISTS album_spines (
+        spotify_id TEXT PRIMARY KEY,
+        spine_url TEXT,
+        last_checked DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
 `);
 
 // ---------------------------------------------------------------------------
@@ -187,6 +192,15 @@ module.exports = {
     },
     cacheAlbums: (albums) => {
         db.prepare('INSERT OR REPLACE INTO albums_cache (id, data, updated_at) VALUES (1, ?, CURRENT_TIMESTAMP)').run(JSON.stringify(albums));
+    },
+
+    // Spine cache
+    getSpineCache: (spotifyId) => {
+        const row = db.prepare('SELECT spine_url FROM album_spines WHERE spotify_id = ?').get(spotifyId);
+        return row ? { spineUrl: row.spine_url } : null;
+    },
+    setSpineCache: (spotifyId, spineUrl) => {
+        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, last_checked) VALUES (?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '');
     },
 
     // Token storage (encrypted)

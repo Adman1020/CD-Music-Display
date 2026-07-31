@@ -4,6 +4,7 @@ let allAlbums = [];
 let displayMode = 'covers';
 let sortOrder = 'added';
 let autoScrollInterval;
+let spineObserver = null;
 
 // Lazy import to avoid circular dependency
 function notify(msg, type) {
@@ -103,25 +104,77 @@ function sortAlbums(albums) {
     });
 }
 
+function initSpineObserver() {
+    if (!spineObserver) {
+        spineObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const el = entry.target;
+                    if (el.dataset.spineLoaded !== 'true') {
+                        el.dataset.spineLoaded = 'true';
+                        fetchSpine(el);
+                    }
+                }
+            });
+        }, { root: document.getElementById('shelf-container'), rootMargin: '200px' });
+    }
+}
+
+async function fetchSpine(el) {
+    const id = el.dataset.id;
+    const name = el.dataset.name;
+    const artist = el.dataset.artist;
+    
+    try {
+        const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.spineUrl) {
+                el.style.backgroundImage = `url(${data.spineUrl})`;
+                el.classList.add('has-authentic-spine');
+            }
+        }
+    } catch(e) {
+        console.error("Failed to load spine", e);
+    }
+}
+
 function renderShelf() {
     const container = document.getElementById('shelf-container');
     container.innerHTML = '';
     
     const sorted = sortAlbums(allAlbums);
     
+    if (spineObserver) {
+        spineObserver.disconnect();
+    }
+    
+    if (displayMode === 'spines') {
+        initSpineObserver();
+    }
+    
     sorted.forEach(album => {
         let el = document.createElement('div');
         
         if (displayMode === 'spines') {
             el.className = 'album-spine';
+            el.dataset.id = album.id;
+            el.dataset.name = album.name;
+            el.dataset.artist = album.artist;
+            
+            const bg = document.createElement('div');
+            bg.className = 'album-spine-bg';
             if (album.image) {
-                el.style.backgroundImage = `url(${album.image})`;
+                bg.style.backgroundImage = `url(${album.image})`;
             }
+            el.appendChild(bg);
             
             let text = document.createElement('div');
             text.className = 'album-spine-text';
             text.textContent = `${album.artist} — ${album.name}`;
             el.appendChild(text);
+            
+            spineObserver.observe(el);
             
         } else if (displayMode === 'covers' || displayMode === 'grid') {
             el.className = 'album-cover';

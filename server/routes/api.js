@@ -156,6 +156,75 @@ router.get('/albums/refresh', async (req, res) => {
     }
 });
 
+// GET /albums/:id/spine - Lazily fetch spine image from Cover Art Archive
+router.get('/albums/:id/spine', async (req, res) => {
+    try {
+        const spotifyId = req.params.id;
+        const { name, artist } = req.query;
+        
+        if (!name || !artist) return res.status(400).json({ error: 'Missing name or artist' });
+        
+        // 1. Check cache
+        const cached = db.getSpineCache(spotifyId);
+        if (cached) {
+            return res.json({ spineUrl: cached.spineUrl || null });
+        }
+        
+        // 2. Fetch MBID from MusicBrainz
+        const mbUrl = `https://musicbrainz.org/ws/2/release?query=release:"${encodeURIComponent(name)}" AND artist:"${encodeURIComponent(artist)}"&fmt=json`;
+        
+        const mbRes = await fetch(mbUrl, {
+            headers: { 'User-Agent': 'CDMusicDisplay/1.0 ( local@local.com )' }
+        });
+        
+        if (!mbRes.ok) {
+            db.setSpineCache(spotifyId, null);
+            return res.json({ spineUrl: null });
+        }
+        
+        const mbData = await mbRes.json();
+        if (!mbData.releases || mbData.releases.length === 0) {
+            db.setSpineCache(spotifyId, null);
+            return res.json({ spineUrl: null });
+        }
+        
+        // Use the first confident match
+        const mbid = mbData.releases[0].id;
+        
+        // 3. Fetch from Cover Art Archive
+        const caaUrl = `https://coverartarchive.org/release/${mbid}`;
+        const caaRes = await fetch(caaUrl, {
+            headers: { 'User-Agent': 'CDMusicDisplay/1.0' }
+        });
+        
+        if (!caaRes.ok) {
+            db.setSpineCache(spotifyId, null);
+            return res.json({ spineUrl: null });
+        }
+        
+        const caaData = await caaRes.json();
+        
+        // 4. Find spine or back image
+        let spineUrl = null;
+        const images = caaData.images || [];
+        
+        const spineImg = images.find(img => img.types && img.types.includes('Spine'));
+        if (spineImg) {
+            spineUrl = spineImg.image;
+        } else {
+            const backImg = images.find(img => img.types && img.types.includes('Back'));
+            if (backImg) spineUrl = backImg.image;
+        }
+        
+        db.setSpineCache(spotifyId, spineUrl);
+        res.json({ spineUrl });
+        
+    } catch (e) {
+        console.error("[CD-Display] Spine fetch error for", req.query.name, e.message);
+        res.json({ spineUrl: null });
+    }
+});
+
 // GET /player - Returns current playback state
 router.get('/player', async (req, res) => {
     try {
