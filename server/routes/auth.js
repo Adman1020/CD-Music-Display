@@ -13,7 +13,10 @@ function generateCodeChallenge(verifier) {
 }
 
 const getRedirectUri = () => {
-    const { baseUrl } = db.getSpotifyCredentials();
+    let { baseUrl } = db.getSpotifyCredentials();
+    if (baseUrl && baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+    }
     return `${baseUrl}/auth/callback`;
 };
 
