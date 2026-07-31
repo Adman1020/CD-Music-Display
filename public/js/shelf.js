@@ -214,9 +214,17 @@ function renderShelf() {
     
     if (displayMode === 'spines') {
         initSpineObserver();
-    }
-    
-    sorted.forEach((album, index) => {
+        
+        // Ensure we have enough elements to fill an ultra-wide screen to prevent void gaps
+        const containerWidth = window.innerWidth || 1920;
+        const requiredElements = Math.ceil(containerWidth / (SPINE_WIDTH + GAP)) * 2;
+        
+        let displayAlbums = [...sorted];
+        while (displayAlbums.length > 0 && displayAlbums.length < requiredElements) {
+            displayAlbums = displayAlbums.concat(sorted);
+        }
+        
+        displayAlbums.forEach((album, index) => {
         let el = document.createElement('div');
         
         if (displayMode === 'spines') {
@@ -251,35 +259,42 @@ function renderShelf() {
             });
             
             spineObserver.observe(el);
-            
-        } else if (displayMode === 'covers' || displayMode === 'grid') {
+            container.appendChild(el);
+        });
+    }
+    
+    if (displayMode !== 'spines') {
+        sorted.forEach((album, index) => {
+            let el = document.createElement('div');
             el.className = 'album-cover';
-            if (displayMode === 'grid') el.classList.add('album-grid-item');
+            el.dataset.id = album.id;
+            el.dataset.uri = album.uri;
             
             let img = document.createElement('img');
-            img.src = album.image || '';
-            img.className = 'album-cover-img';
+            img.src = album.image || 'https://placehold.co/300x300/111/444?text=No+Cover';
             img.alt = album.name;
             img.loading = 'lazy';
             
             let info = document.createElement('div');
-            info.className = 'album-cover-info';
+            info.className = 'album-info';
             
-            let title = document.createElement('h4');
+            let title = document.createElement('div');
+            title.className = 'album-title';
             title.textContent = album.name;
             
-            let artist = document.createElement('p');
+            let artist = document.createElement('div');
+            artist.className = 'album-artist';
             artist.textContent = album.artist;
             
             info.appendChild(title);
             info.appendChild(artist);
             el.appendChild(img);
             el.appendChild(info);
-        }
-        
-        el.addEventListener('click', () => showAlbumDetail(album));
-        container.appendChild(el);
-    });
+            
+            el.addEventListener('click', () => showAlbumDetail(album));
+            container.appendChild(el);
+        });
+    }
 }
 
 let currentSelectedAlbum = null;
@@ -318,7 +333,8 @@ function carouselLoop() {
         const container = document.getElementById('shelf-container');
         if (container) {
             const centerX = container.clientWidth / 2;
-            const numAlbums = allAlbums.length;
+            const spines = container.querySelectorAll('.album-spine');
+            const numAlbums = spines.length; // Use rendered element count
             const itemWidth = SPINE_WIDTH + GAP;
             
             if (!isDragging) {
