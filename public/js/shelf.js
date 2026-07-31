@@ -32,6 +32,7 @@ export async function initShelf() {
     }, { passive: false });
     
     container.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.glass-controls-overlay')) return;
         isDragging = true;
         startDragX = e.clientX;
         lastDragX = e.clientX;
@@ -153,7 +154,8 @@ function renderShelf() {
     const container = document.getElementById('shelf-container');
     container.innerHTML = '';
     
-    const sorted = sortAlbums(allAlbums);
+    allAlbums = sortAlbums(allAlbums);
+    const sorted = allAlbums;
     
     if (spineObserver) {
         spineObserver.disconnect();
