@@ -114,8 +114,24 @@
                     </button>
                 </div>
 
-                <div class="time-info">
-                    <span id="np-time-elapsed">0:00</span> / <span id="np-time-total">0:00</span>
+                <div class="right-controls">
+                    <div class="time-info">
+                        <span id="np-time-elapsed">0:00</span> / <span id="np-time-total">0:00</span>
+                    </div>
+                    <div class="device-picker-container">
+                        <button id="btn-device-picker" class="control-btn device-btn" aria-label="Connect to a device">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h20V2H2v20zm4-5h12v-2H6v2zm0-4h12v-2H6v2zm0-4h12V7H6v2z"/></svg>
+                        </button>
+                        <div id="device-picker-menu" class="popover-menu hidden">
+                            <div class="popover-header">
+                                <h3>Connect to a device</h3>
+                                <button id="btn-close-devices" class="close-btn-small" aria-label="Close">✕</button>
+                            </div>
+                            <ul id="device-list" class="device-list">
+                                <!-- Devices populated dynamically -->
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </footer>
