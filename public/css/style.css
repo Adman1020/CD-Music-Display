@@ -250,6 +250,19 @@ body {
     margin-bottom: 2rem;
 }
 
+.play-large {
+    font-size: 16px;
+    padding: 14px 28px;
+    border-radius: 24px;
+}
+
+.play-medium {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 20px;
+}
+
 .btn-primary {
     background-color: var(--accent);
     color: #000;
@@ -436,11 +449,30 @@ body {
     pointer-events: auto;
 }
 
+.glass-selected-album-info {
+    width: 100%;
+    padding: 24px 12px 0 12px;
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.glass-selected-album-info .track-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.glass-selected-album-info .artist-name {
+    font-size: 13px;
+    color: rgba(255,255,255,0.8);
+}
+
 .glass-play-album-container {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-top: -20px; /* pull it up a bit since global player is tall */
 }
 
 .glass-global-player {
@@ -480,6 +512,7 @@ body {
 .glass-track-info {
     text-align: center;
     width: 100%;
+    opacity: 0.5; /* Faded to take attention away */
 }
 
 .glass-track-info .track-name {
@@ -491,15 +524,19 @@ body {
     font-size: 11px;
 }
 
+.glass-player-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+    gap: 16px;
+}
+
 .glass-playback-controls {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-}
-
-.playback-controls {
-    display: flex;
     align-items: center;
     justify-content: center;
     gap: 20px;
@@ -557,8 +594,9 @@ body {
 
 .glass-device-picker {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .device-btn.active {

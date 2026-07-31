@@ -190,6 +190,11 @@ function renderShelf() {
             overlay.classList.toggle('hidden');
             
             if (!overlay.classList.contains('hidden')) {
+                const selectedTitle = overlay.querySelector('#glass-selected-title');
+                const selectedArtist = overlay.querySelector('#glass-selected-artist');
+                if (selectedTitle && currentSelectedAlbum) selectedTitle.textContent = currentSelectedAlbum.name;
+                if (selectedArtist && currentSelectedAlbum) selectedArtist.textContent = currentSelectedAlbum.artist;
+                
                 resetOverlayTimeout(overlay);
             } else {
                 clearTimeout(overlayHideTimeout);
