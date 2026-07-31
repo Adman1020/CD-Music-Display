@@ -168,7 +168,19 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                         const base64 = Buffer.from(arrayBuffer).toString('base64');
                         
                         log(`Sending candidate scan to ${aiConfig.provider} (${aiConfig.model})...`);
-                        const prompt = "This is a CD jewel case scan (such as a back traycard with folded edge flaps). Locate ONLY one physical CD spine flap (the thin vertical strip along the edge containing the artist and album title). A valid CD spine is VERY NARROW compared to its height (width must be under 25% of image height). Reply ONLY with a valid JSON object in this exact format: { \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } } where values are normalized fractions from 0.0 to 1.0 of total image dimensions. If no thin vertical spine flap is present, return {}. Do not include markdown or explanations.";
+                        const prompt = "You are a rigorous music archive preservation expert. Inspect this scan to determine if an AUTHENTIC, UNFOLDED CD TRAYCARD SPINE FLAP is physically present along the edge of the scan.\n" +
+                                       "A genuine CD spine flap MUST exhibit AT LEAST ONE of these undeniable visual proofs:\n" +
+                                       "1. Text aligned sideways (90-degree rotated typography) displaying the artist name, album title, or catalog number.\n" +
+                                       "2. A distinct structural vertical line, fold crease, or completely different background color design separating the narrow spine strip from the main back cover area.\n\n" +
+                                       "CRITICAL WARNING: Many scans are simply flat back covers without any attached spine flaps. NEVER crop or guess a random right-hand or left-hand slice of a back cover if it is simply tracklists, copyright notes, or plain artwork borders! If there is ANY doubt or if it is merely an edge of a standard back cover, you MUST reject it!\n\n" +
+                                       "Reply ONLY with a valid JSON object matching this exact schema:\n" +
+                                       "{\n" +
+                                       "  \"has_authentic_spine_flap\": true or false,\n" +
+                                       "  \"confidence\": \"HIGH\" or \"LOW\",\n" +
+                                       "  \"reasoning\": \"Explicitly explain what visual proofs confirm this is an authentic spine flap, or why it is merely a standard back cover edge.\",\n" +
+                                       "  \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } // normalized 0.0 to 1.0 fractions. If has_authentic_spine_flap is false, return empty box {}.\n" +
+                                       "}\n" +
+                                       "Do not include markdown code blocks or any other surrounding prose.";
                         let jsonText = "";
                         usedAi = true;
 
@@ -231,14 +243,20 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                         }
                         
                         jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const parsed = JSON.parse(jsonText);
+                        let parsed = {};
+                        try {
+                            parsed = JSON.parse(jsonText);
+                        } catch (perr) {
+                            const match = jsonText.match(/\{[\s\S]*\}/);
+                            if (match) parsed = JSON.parse(match[0]);
+                        }
                         
-                        if (parsed.box && parsed.box.width > 0 && parsed.box.height > 0) {
+                        if (parsed.has_authentic_spine_flap && (parsed.confidence === 'HIGH' || parsed.confidence === 'high') && parsed.box && parsed.box.width > 0 && parsed.box.height > 0) {
                             const boxRatio = parsed.box.width / parsed.box.height;
-                            if (boxRatio > 0.35) {
-                                log(`AI returned bounding box with invalid aspect ratio ${boxRatio.toFixed(2)} (too wide for a CD spine, likely selected whole cover). Disregarding AI crop.`);
+                            if (boxRatio > 0.28) {
+                                log(`AI suggested spine box with ratio ${boxRatio.toFixed(2)} (too wide for a genuine CD spine). Rejecting crop; falling back to Spotify cover slice.`);
                             } else {
-                                log(`AI successfully localized spine bounding box (aspect ratio ${boxRatio.toFixed(2)})! Cropping image...`);
+                                log(`AI verified authentic spine flap with HIGH confidence ("${parsed.reasoning || 'verified'}"). Cropping image...`);
                                 const img = sharp(Buffer.from(arrayBuffer));
                                 const metadata = await img.metadata();
                                 const cropX = Math.max(0, Math.floor(parsed.box.x * metadata.width));
@@ -259,7 +277,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                                 }
                             }
                         } else {
-                            log("AI did not detect a spine bounding box in this scan.");
+                            log(`AI rejected image as non-spine or low confidence ("${parsed.reasoning || 'No distinct spine characteristics verified'}"). Falling back to Spotify cover slice.`);
                         }
                     }
                 } catch (aie) {

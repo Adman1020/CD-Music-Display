@@ -145,11 +145,16 @@ async function loadSettings() {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
             }
-            if (settings.useAiVision === 'true') {
+            if (settings.useAiVision === 'true' || settings.useAiVision === true || settings.useAiVision === 1) {
                 document.getElementById('config-ai-toggle').checked = true;
                 document.getElementById('ai-settings-container').style.display = 'block';
                 const diagBtn = document.getElementById('btn-open-worker-diagnostics');
                 if (diagBtn) diagBtn.style.display = 'block';
+            } else {
+                document.getElementById('config-ai-toggle').checked = false;
+                document.getElementById('ai-settings-container').style.display = 'none';
+                const diagBtn = document.getElementById('btn-open-worker-diagnostics');
+                if (diagBtn) diagBtn.style.display = 'none';
             }
 
         }
@@ -251,6 +256,9 @@ async function saveAiConfig() {
         if (apiKey) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiApiKey', value: apiKey }) });
         if (model) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiModel', value: model }) });
         if (rateLimit) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiRateLimit', value: rateLimit }) });
+        
+        const isAiEnabled = document.getElementById('config-ai-toggle').checked ? 'true' : 'false';
+        await saveSetting('useAiVision', isAiEnabled);
         
         // Trigger worker restart/reprocess automatically
         await fetch('/api/worker/reprocess', { method: 'POST' });
