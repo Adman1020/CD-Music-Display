@@ -19,6 +19,10 @@
 - 🖥️ **Ultra-Wide Optimised**: Custom engineered specifically for displays that are very wide but not very tall.
 - 🐳 **Docker Deployment**: One-command setup.
 
+## Screenshots
+
+![CD Music Display UI](screenshot.png)
+
 ## Quick Start (Docker)
 
 1. Clone the repository:
