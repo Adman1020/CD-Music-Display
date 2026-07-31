@@ -55,6 +55,11 @@ try {
     db.exec(`ALTER TABLE album_spines ADD COLUMN cover_url TEXT;`);
 } catch (e) {}
 
+// Clean up any previously cached invalid wide spine scans (>95px width) so worker re-processes them
+try {
+    db.exec(`UPDATE album_spines SET spine_url = '', spine_type = null, spine_width = 28 WHERE spine_width > 95;`);
+} catch (e) {}
+
 // ---------------------------------------------------------------------------
 // Config management (Spotify credentials, session secret, base URL)
 // These are entered by the user via the setup/settings UI.
@@ -213,7 +218,8 @@ module.exports = {
         return row ? { spineUrl: row.spine_url, spineType: row.spine_type, spineWidth: row.spine_width || 28, coverUrl: row.cover_url || null } : null;
     },
     setSpineCache: (spotifyId, spineUrl, spineType = null, spineWidth = 28, coverUrl = null) => {
-        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, spine_width, cover_url, last_checked) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType, Math.max(28, parseInt(spineWidth) || 28), coverUrl || null);
+        const w = Math.min(95, Math.max(18, parseInt(spineWidth) || 28));
+        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, spine_width, cover_url, last_checked) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType, w, coverUrl || null);
     },
     clearSpineCache: () => {
         db.prepare('DELETE FROM album_spines').run();

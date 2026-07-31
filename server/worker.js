@@ -139,8 +139,9 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
             coverUrl = album.image || null;
         }
 
-        // 2. Resolve Spine Artwork via Explicit CAA Tag
+        // 2. Resolve Spine Artwork via Explicit CAA Tag (with Aspect Ratio validation)
         const spineImg = images.find(img => img.types && img.types.includes('Spine'));
+        let wideSpineCandidate = null;
         if (spineImg) {
             log(`Heuristic explicit Spine scan found on Cover Art Archive for ${name}!`);
             try {
@@ -149,24 +150,33 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     const buf = Buffer.from(await sRes.arrayBuffer());
                     const img = sharp(buf);
                     const metadata = await img.metadata();
-                    // Calculate exact proportional width when scaled to 300px height
-                    const calcWidth = Math.max(28, Math.round(300 * (metadata.width / metadata.height)));
-                    const filename = `spine_${album.id}.jpg`;
-                    await img.resize({ width: calcWidth, height: 300, fit: 'fill' }).toFile(path.join(dataDir, filename));
-                    spineUrl = `/data/${filename}`;
-                    spineType = 'spine';
-                    spineWidth = calcWidth;
-                    return { coverUrl, spineUrl, spineType, spineWidth, usedAi: false };
+                    const ratio = metadata.width / metadata.height;
+                    
+                    // A true vertical CD spine has a very low aspect ratio (width <= 35% of height).
+                    // If wider, it's actually an entire back traycard or un-cropped cover scan!
+                    if (ratio > 0.35) {
+                        log(`Explicit 'Spine' image has aspect ratio ${ratio.toFixed(2)} (not a thin spine strip). Reclassifying as candidate scan for AI bounding-box extraction.`);
+                        wideSpineCandidate = spineImg;
+                    } else {
+                        // Calculate proportional width when scaled to 300px height, allowed range 18px to 95px
+                        const calcWidth = Math.min(95, Math.max(18, Math.round(300 * ratio)));
+                        const filename = `spine_${album.id}.jpg`;
+                        await img.resize({ width: calcWidth, height: 300, fit: 'fill' }).toFile(path.join(dataDir, filename));
+                        spineUrl = `/data/${filename}`;
+                        spineType = 'spine';
+                        spineWidth = calcWidth;
+                        return { coverUrl, spineUrl, spineType, spineWidth, usedAi: false };
+                    }
                 }
             } catch (se) {
                 log(`Explicit spine image processing failed: ${se.message}`);
             }
         }
 
-        // 3. AI Vision Fallback (if no explicit spine scan was found)
+        // 3. AI Vision Fallback (if no valid explicit spine scan was found)
         if (useAi && aiConfig && aiConfig.provider && aiConfig.key && !spineUrl) {
-            log(`No explicit spine image found. Kicking into AI Vision analysis...`);
-            const targetImage = images.find(img => img.types && (img.types.includes('Back') || img.types.includes('Tray') || img.types.includes('Other') || img.types.length === 0));
+            log(`No ready-to-use spine image found. Kicking into AI Vision analysis...`);
+            const targetImage = wideSpineCandidate || images.find(img => img.types && (img.types.includes('Back') || img.types.includes('Tray') || img.types.includes('Other') || img.types.length === 0));
             if (targetImage) {
                 try {
                     const candidateUrl = targetImage.image;
@@ -177,7 +187,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                         const base64 = Buffer.from(arrayBuffer).toString('base64');
                         
                         log(`Sending candidate scan to ${aiConfig.provider} (${aiConfig.model})...`);
-                        const prompt = "This is a CD jewel case scan (back traycard, booklet, or fold). Find the physical CD spine (the long thin strip containing artist and album title). Reply ONLY with a valid JSON object in this exact format: { \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } } where values are fractions from 0.0 to 1.0 of total image dimensions. If there is no spine, return {}. Do not include markdown or explanations.";
+                        const prompt = "This is a CD jewel case scan (such as a back traycard with folded edge flaps). Locate ONLY one physical CD spine flap (the thin vertical strip along the edge containing the artist and album title). A valid CD spine is VERY NARROW compared to its height (width must be under 25% of image height). Reply ONLY with a valid JSON object in this exact format: { \"box\": { \"x\": 0.0, \"y\": 0.0, \"width\": 0.0, \"height\": 0.0 } } where values are normalized fractions from 0.0 to 1.0 of total image dimensions. If no thin vertical spine flap is present, return {}. Do not include markdown or explanations.";
                         let jsonText = "";
                         usedAi = true;
 
@@ -243,24 +253,29 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                         const parsed = JSON.parse(jsonText);
                         
                         if (parsed.box && parsed.box.width > 0 && parsed.box.height > 0) {
-                            log(`AI successfully localized spine bounding box! Cropping image...`);
-                            const img = sharp(Buffer.from(arrayBuffer));
-                            const metadata = await img.metadata();
-                            const cropX = Math.max(0, Math.floor(parsed.box.x * metadata.width));
-                            const cropY = Math.max(0, Math.floor(parsed.box.y * metadata.height));
-                            const cropW = Math.min(metadata.width - cropX, Math.floor(parsed.box.width * metadata.width));
-                            const cropH = Math.min(metadata.height - cropY, Math.floor(parsed.box.height * metadata.height));
-                            
-                            if (cropW > 5 && cropH > 5) {
-                                const calcWidth = Math.max(28, Math.round(300 * (cropW / cropH)));
-                                const filename = `spine_${album.id}.jpg`;
-                                await img.extract({ left: cropX, top: cropY, width: cropW, height: cropH })
-                                    .resize({ width: calcWidth, height: 300, fit: 'fill' })
-                                    .toFile(path.join(dataDir, filename));
-                                spineUrl = `/data/${filename}`;
-                                spineType = 'ai_crop';
-                                spineWidth = calcWidth;
-                                return { coverUrl, spineUrl, spineType, spineWidth, usedAi: true };
+                            const boxRatio = parsed.box.width / parsed.box.height;
+                            if (boxRatio > 0.35) {
+                                log(`AI returned bounding box with invalid aspect ratio ${boxRatio.toFixed(2)} (too wide for a CD spine, likely selected whole cover). Disregarding AI crop.`);
+                            } else {
+                                log(`AI successfully localized spine bounding box (aspect ratio ${boxRatio.toFixed(2)})! Cropping image...`);
+                                const img = sharp(Buffer.from(arrayBuffer));
+                                const metadata = await img.metadata();
+                                const cropX = Math.max(0, Math.floor(parsed.box.x * metadata.width));
+                                const cropY = Math.max(0, Math.floor(parsed.box.y * metadata.height));
+                                const cropW = Math.min(metadata.width - cropX, Math.floor(parsed.box.width * metadata.width));
+                                const cropH = Math.min(metadata.height - cropY, Math.floor(parsed.box.height * metadata.height));
+                                
+                                if (cropW > 3 && cropH > 5) {
+                                    const calcWidth = Math.min(95, Math.max(18, Math.round(300 * (cropW / cropH))));
+                                    const filename = `spine_${album.id}.jpg`;
+                                    await img.extract({ left: cropX, top: cropY, width: cropW, height: cropH })
+                                        .resize({ width: calcWidth, height: 300, fit: 'fill' })
+                                        .toFile(path.join(dataDir, filename));
+                                    spineUrl = `/data/${filename}`;
+                                    spineType = 'ai_crop';
+                                    spineWidth = calcWidth;
+                                    return { coverUrl, spineUrl, spineType, spineWidth, usedAi: true };
+                                }
                             }
                         } else {
                             log("AI did not detect a spine bounding box in this scan.");
