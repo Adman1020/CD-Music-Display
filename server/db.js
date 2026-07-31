@@ -11,34 +11,15 @@ if (!fs.existsSync(dataDir)) {
 
 const db = new Database(path.join(dataDir, 'cd-music-display.db'));
 
-// Encryption configuration for tokens
-const algorithm = 'aes-256-cbc';
-// Pad or truncate secret to 32 bytes for AES-256
-const rawSecret = process.env.SESSION_SECRET || 'fallback-secret-key-change-in-production';
-const secretKey = crypto.createHash('sha256').update(String(rawSecret)).digest('base64').substring(0, 32);
-
-function encrypt(text) {
-    if (!text) return text;
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-}
-
-function decrypt(text) {
-    if (!text) return text;
-    const textParts = text.split(':');
-    const iv = Buffer.from(textParts.shift(), 'hex');
-    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv(algorithm, Buffer.from(secretKey), iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-}
+// Enable WAL mode for better concurrent access
+db.pragma('journal_mode = WAL');
 
 // Initialize tables
 db.exec(`
+    CREATE TABLE IF NOT EXISTS config (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    );
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
@@ -56,6 +37,103 @@ db.exec(`
     );
 `);
 
+// ---------------------------------------------------------------------------
+// Config management (Spotify credentials, session secret, base URL)
+// These are entered by the user via the setup/settings UI.
+// ---------------------------------------------------------------------------
+
+// Auto-generate a session secret on first run
+const existingSecret = db.prepare('SELECT value FROM config WHERE key = ?').get('sessionSecret');
+if (!existingSecret) {
+    const generated = crypto.randomBytes(48).toString('hex');
+    db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run('sessionSecret', generated);
+    console.log('[CD-Display] Generated new session secret');
+}
+
+function getConfig(key) {
+    const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key);
+    return row ? row.value : null;
+}
+
+function setConfig(key, value) {
+    db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)').run(key, String(value));
+}
+
+function getAllConfig() {
+    const rows = db.prepare('SELECT key, value FROM config').all();
+    const config = {};
+    rows.forEach(row => {
+        // Don't expose the session secret to the frontend
+        if (row.key !== 'sessionSecret') {
+            // Mask the client secret for display
+            if (row.key === 'spotifyClientSecret' && row.value) {
+                config[row.key] = row.value.substring(0, 4) + '••••••••' + row.value.substring(row.value.length - 4);
+            } else {
+                config[row.key] = row.value;
+            }
+        }
+    });
+    return config;
+}
+
+function isSetupComplete() {
+    const clientId = getConfig('spotifyClientId');
+    const clientSecret = getConfig('spotifyClientSecret');
+    return !!(clientId && clientSecret);
+}
+
+function getSessionSecret() {
+    return getConfig('sessionSecret');
+}
+
+function getSpotifyCredentials() {
+    return {
+        clientId: getConfig('spotifyClientId'),
+        clientSecret: getConfig('spotifyClientSecret'),
+        baseUrl: getConfig('baseUrl') || 'http://localhost:3000'
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Encryption helpers for token storage
+// ---------------------------------------------------------------------------
+const algorithm = 'aes-256-cbc';
+
+function getEncryptionKey() {
+    const secret = getSessionSecret() || 'fallback-key';
+    return crypto.createHash('sha256').update(String(secret)).digest('base64').substring(0, 32);
+}
+
+function encrypt(text) {
+    if (!text) return text;
+    const secretKey = getEncryptionKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+    if (!text) return text;
+    try {
+        const secretKey = getEncryptionKey();
+        const textParts = text.split(':');
+        const iv = Buffer.from(textParts.shift(), 'hex');
+        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+        const decipher = crypto.createDecipheriv(algorithm, Buffer.from(secretKey), iv);
+        let decrypted = decipher.update(encryptedText);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        return decrypted.toString();
+    } catch (e) {
+        console.error('[CD-Display] Token decryption failed — tokens may need to be re-created');
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Display settings (display mode, sort order, theme, etc.)
+// ---------------------------------------------------------------------------
 const defaultSettings = {
     displayMode: 'covers',
     sortOrder: 'added',
@@ -64,18 +142,28 @@ const defaultSettings = {
     screenSleepMinutes: '30'
 };
 
-// Insert defaults if not present
 const stmtInsertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
 for (const [key, value] of Object.entries(defaultSettings)) {
     stmtInsertSetting.run(key, value);
 }
 
+// ---------------------------------------------------------------------------
+// Exports
+// ---------------------------------------------------------------------------
 module.exports = {
+    // Config
+    getConfig,
+    setConfig,
+    getAllConfig,
+    isSetupComplete,
+    getSessionSecret,
+    getSpotifyCredentials,
+
+    // Display settings
     getSettings: () => {
         const rows = db.prepare('SELECT key, value FROM settings').all();
         const settings = {};
         rows.forEach(row => {
-            // Parse boolean/number strings for convenience
             let val = row.value;
             if (val === 'true') val = true;
             else if (val === 'false') val = false;
@@ -88,6 +176,8 @@ module.exports = {
         const valStr = String(value);
         db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, valStr);
     },
+
+    // Album cache
     getCachedAlbums: () => {
         const row = db.prepare('SELECT data, updated_at FROM albums_cache WHERE id = 1').get();
         if (row) {
@@ -98,6 +188,8 @@ module.exports = {
     cacheAlbums: (albums) => {
         db.prepare('INSERT OR REPLACE INTO albums_cache (id, data, updated_at) VALUES (1, ?, CURRENT_TIMESTAMP)').run(JSON.stringify(albums));
     },
+
+    // Token storage (encrypted)
     saveTokens: (accessToken, refreshToken, expiresInSeconds) => {
         const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
         db.prepare('INSERT OR REPLACE INTO tokens (id, access_token, refresh_token, expires_at) VALUES (1, ?, ?, ?)')
@@ -106,9 +198,12 @@ module.exports = {
     getTokens: () => {
         const row = db.prepare('SELECT access_token, refresh_token, expires_at FROM tokens WHERE id = 1').get();
         if (row) {
+            const accessToken = decrypt(row.access_token);
+            const refreshToken = decrypt(row.refresh_token);
+            if (!accessToken || !refreshToken) return null;
             return {
-                accessToken: decrypt(row.access_token),
-                refreshToken: decrypt(row.refresh_token),
+                accessToken,
+                refreshToken,
                 expiresAt: new Date(row.expires_at)
             };
         }

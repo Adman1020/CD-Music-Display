@@ -25,19 +25,15 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/CD-Music-Display.git
+   git clone https://github.com/Adman1020/CD-Music-Display.git
    cd CD-Music-Display
    ```
-2. Copy the example environment file and edit it:
-   ```bash
-   cp .env.example .env
-   ```
-3. Set up a Spotify Developer App (see guide below) and update your `.env` file with the credentials.
-4. Start the application using Docker Compose:
+2. Start the application using Docker Compose:
    ```bash
    docker compose up -d
    ```
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Follow the on-screen setup instructions to configure your Spotify credentials and log in.
 
 ## Spotify Developer Setup
 
@@ -46,7 +42,7 @@
 3. Set your App name and App description.
 4. Add the following **Redirect URI**: `http://localhost:3000/auth/callback` (or use your `BASE_URL` + `/auth/callback` if hosting elsewhere).
 5. Ensure you check **Web API** and **Web Playback SDK** in the APIs/Permissions section.
-6. Copy your **Client ID** and **Client Secret** and add them to your `.env` file.
+6. Copy your **Client ID** and **Client Secret** and enter them into the app's setup screen in your browser.
 7. **Note:** A Spotify Premium account is required for playback control.
 
 ## Raspberry Pi Kiosk Mode
@@ -70,21 +66,11 @@
    ```
 5. Set this script to auto-start on boot via a `.desktop` file or systemd service.
 
-## Environment Variables
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `SPOTIFY_CLIENT_ID` | Your Spotify App Client ID | (Required) |
-| `SPOTIFY_CLIENT_SECRET` | Your Spotify App Client Secret | (Required) |
-| `BASE_URL` | The base URL where the app is accessible | `http://localhost:3000` |
-| `SESSION_SECRET` | A random string used to secure sessions | (Required) |
-| `PORT` | The port the application will run on | `3000` |
-
 ## Architecture
 
 - **Backend:** Express.js
 - **Frontend:** Vanilla JS/HTML/CSS
-- **Database:** SQLite (using `better-sqlite3`)
+- **Database:** SQLite (using `better-sqlite3`) for configuration and cache
 - **APIs:** Spotify Web API + Playback SDK
 
 ## License

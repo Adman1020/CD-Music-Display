@@ -1,4 +1,4 @@
-import { logout, getToken } from './auth.js';
+import { logout } from './auth.js';
 import { loadAlbums, setDisplayMode, setSortOrder, setAutoScroll } from './shelf.js';
 import { updateSleepTimeout } from './app.js';
 
@@ -48,9 +48,13 @@ export async function initSettings() {
         setAutoScroll(e.target.checked);
         saveSetting('autoScroll', e.target.checked);
     });
+
+    // Spotify config save button
+    document.getElementById('btn-save-config').addEventListener('click', saveSpotifyConfig);
     
-    // Load existing settings
+    // Load existing settings & config
     await loadSettings();
+    await loadSpotifyConfig();
     await fetchDevices();
     
     window.addEventListener('spotify-device-ready', () => fetchDevices());
@@ -97,6 +101,71 @@ async function loadSettings() {
         }
     } catch (e) {
         console.warn("Failed to load settings from server, using defaults", e);
+    }
+}
+
+async function loadSpotifyConfig() {
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const config = await res.json();
+            
+            if (config.spotifyClientId) {
+                document.getElementById('config-client-id').value = config.spotifyClientId;
+            }
+            if (config.spotifyClientSecret) {
+                document.getElementById('config-client-secret').placeholder = config.spotifyClientSecret;
+            }
+            if (config.baseUrl) {
+                document.getElementById('config-base-url').value = config.baseUrl;
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to load Spotify config", e);
+    }
+}
+
+async function saveSpotifyConfig() {
+    const clientId = document.getElementById('config-client-id').value.trim();
+    const clientSecret = document.getElementById('config-client-secret').value.trim();
+    const baseUrl = document.getElementById('config-base-url').value.trim();
+    
+    const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
+    
+    try {
+        // Only save fields that have values
+        if (clientId) {
+            await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'spotifyClientId', value: clientId })
+            });
+        }
+        if (clientSecret) {
+            await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'spotifyClientSecret', value: clientSecret })
+            });
+        }
+        if (baseUrl) {
+            await fetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'baseUrl', value: baseUrl })
+            });
+        }
+        
+        notify('Spotify configuration saved. Sign out and back in for changes to take effect.');
+        
+        // Clear the secret field after saving
+        document.getElementById('config-client-secret').value = '';
+        
+        // Reload the masked values
+        await loadSpotifyConfig();
+    } catch (e) {
+        console.error("Failed to save Spotify config", e);
+        notify('Failed to save configuration', 'error');
     }
 }
 

@@ -3,8 +3,83 @@ const db = require('../db');
 const spotify = require('../spotify');
 const router = express.Router();
 
-// Middleware to check authentication on all API routes
+// ---------------------------------------------------------------------------
+// Config endpoints (no auth required — needed before Spotify login)
+// ---------------------------------------------------------------------------
+
+// GET /api/setup — Check if initial setup is complete
+router.get('/setup', (req, res) => {
+    res.json({
+        complete: db.isSetupComplete(),
+        config: db.getAllConfig()
+    });
+});
+
+// GET /api/config — Get current config (secrets masked)
+router.get('/config', (req, res) => {
+    res.json(db.getAllConfig());
+});
+
+// PUT /api/config — Save a config value
+router.put('/config', (req, res) => {
+    try {
+        const { key, value } = req.body;
+        const allowedKeys = ['spotifyClientId', 'spotifyClientSecret', 'baseUrl'];
+        
+        if (!key || !allowedKeys.includes(key)) {
+            return res.status(400).json({ error: `Invalid config key. Allowed: ${allowedKeys.join(', ')}` });
+        }
+        if (value === undefined || value === null) {
+            return res.status(400).json({ error: 'Missing value' });
+        }
+
+        db.setConfig(key, value.trim());
+        
+        // When credentials change, clear existing tokens (they're now invalid)
+        if (key === 'spotifyClientId' || key === 'spotifyClientSecret') {
+            db.clearTokens();
+        }
+        
+        console.log(`[CD-Display] Config updated: ${key}`);
+        res.json({ success: true, setupComplete: db.isSetupComplete() });
+    } catch (error) {
+        console.error('[CD-Display] Error saving config:', error);
+        res.status(500).json({ error: 'Failed to save config' });
+    }
+});
+
+// POST /api/config/save — Bulk save all config at once (for setup form)
+router.post('/config/save', (req, res) => {
+    try {
+        const { spotifyClientId, spotifyClientSecret, baseUrl } = req.body;
+        
+        if (!spotifyClientId || !spotifyClientSecret) {
+            return res.status(400).json({ error: 'Client ID and Client Secret are required' });
+        }
+        
+        db.setConfig('spotifyClientId', spotifyClientId.trim());
+        db.setConfig('spotifyClientSecret', spotifyClientSecret.trim());
+        db.setConfig('baseUrl', (baseUrl || 'http://localhost:3000').trim());
+        
+        // Clear any stale tokens
+        db.clearTokens();
+        
+        console.log('[CD-Display] Setup configuration saved');
+        res.json({ success: true, setupComplete: true });
+    } catch (error) {
+        console.error('[CD-Display] Error saving setup config:', error);
+        res.status(500).json({ error: 'Failed to save configuration' });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Auth middleware — all routes below require Spotify authentication
+// ---------------------------------------------------------------------------
 router.use((req, res, next) => {
+    // Allow settings and config endpoints through without auth
+    if (req.path === '/settings' && req.method === 'GET') return next();
+    if (req.path === '/settings' && req.method === 'PUT') return next();
+    
     const tokens = db.getTokens();
     if (!tokens) {
         return res.status(401).json({ error: 'Unauthorized: Please authenticate with Spotify first' });

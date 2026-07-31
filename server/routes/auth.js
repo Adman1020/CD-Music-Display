@@ -13,14 +13,16 @@ function generateCodeChallenge(verifier) {
 }
 
 const getRedirectUri = () => {
-    return `${process.env.BASE_URL || 'http://localhost:3000'}/auth/callback`;
+    const { baseUrl } = db.getSpotifyCredentials();
+    return `${baseUrl}/auth/callback`;
 };
 
 router.get('/login', (req, res) => {
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    if (!clientId) {
-        return res.status(500).json({ error: 'SPOTIFY_CLIENT_ID not configured' });
+    if (!db.isSetupComplete()) {
+        return res.status(400).json({ error: 'Spotify credentials not configured. Complete setup first.' });
     }
+
+    const { clientId } = db.getSpotifyCredentials();
 
     const state = generateRandomString(16);
     const codeVerifier = generateRandomString(64);
@@ -60,8 +62,7 @@ router.get('/callback', async (req, res) => {
     delete req.session.state;
     delete req.session.codeVerifier;
 
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    const { clientId, clientSecret } = db.getSpotifyCredentials();
 
     try {
         const response = await fetch('https://accounts.spotify.com/api/token', {
@@ -112,8 +113,7 @@ router.post('/refresh', async (req, res) => {
             return res.status(400).json({ error: 'No refresh token available' });
         }
         
-        const clientId = process.env.SPOTIFY_CLIENT_ID;
-        const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+        const { clientId, clientSecret } = db.getSpotifyCredentials();
         
         const response = await fetch('https://accounts.spotify.com/api/token', {
             method: 'POST',
@@ -146,9 +146,14 @@ router.get('/logout', (req, res) => {
 });
 
 router.get('/status', async (req, res) => {
+    // Include setup status so the frontend knows which screen to show
+    if (!db.isSetupComplete()) {
+        return res.json({ authenticated: false, setupComplete: false });
+    }
+
     const tokens = db.getTokens();
     if (!tokens) {
-        return res.json({ authenticated: false });
+        return res.json({ authenticated: false, setupComplete: true });
     }
     
     try {
@@ -156,6 +161,7 @@ router.get('/status', async (req, res) => {
         const user = await spotify.getCurrentUser();
         res.json({
             authenticated: true,
+            setupComplete: true,
             user: {
                 name: user.display_name,
                 email: user.email,
@@ -163,7 +169,7 @@ router.get('/status', async (req, res) => {
             }
         });
     } catch (err) {
-        res.json({ authenticated: false });
+        res.json({ authenticated: false, setupComplete: true });
     }
 });
 

@@ -1,17 +1,15 @@
 const db = require('./db');
 
 // Node 20+ has built-in fetch
-const _fetch = globalThis.fetch;
 
 async function refreshAccessToken(refreshToken) {
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    const { clientId, clientSecret } = db.getSpotifyCredentials();
     
     if (!clientId || !clientSecret) {
-        throw new Error('Spotify credentials not found');
+        throw new Error('Spotify credentials not configured');
     }
 
-    const response = await _fetch('https://accounts.spotify.com/api/token', {
+    const response = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,7 +66,7 @@ async function spotifyApiFetch(endpoint, options = {}) {
         ...(options.headers || {})
     };
 
-    let response = await _fetch(`https://api.spotify.com/v1${endpoint}`, {
+    let response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
         ...options,
         headers
     });
@@ -82,12 +80,15 @@ async function spotifyApiFetch(endpoint, options = {}) {
             db.saveTokens(data.access_token, data.refresh_token || tokens.refreshToken, data.expires_in);
             token = data.access_token;
             headers['Authorization'] = `Bearer ${token}`;
-            response = await _fetch(`https://api.spotify.com/v1${endpoint}`, {
+            response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
                 ...options,
                 headers
             });
         }
     }
+
+    // 204 No Content has no body
+    if (response.status === 204) return null;
 
     if (!response.ok) {
         const text = await response.text();
@@ -95,8 +96,6 @@ async function spotifyApiFetch(endpoint, options = {}) {
         throw new Error(`Spotify API error: ${response.statusText}`);
     }
 
-    // 204 No Content has no body
-    if (response.status === 204) return null;
     return response.json();
 }
 

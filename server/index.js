@@ -1,10 +1,9 @@
-require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const db = require('./db');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
-const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,13 +12,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Session setup
+// Session setup — secret is auto-generated and stored in SQLite
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'fallback-secret-key-change-in-production',
+    secret: db.getSessionSecret(),
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.COOKIE_SECURE === 'true',
+        secure: false, // Running behind localhost / Docker
         maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
     }
 }));
@@ -34,6 +33,7 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`[CD-Display] Server running on port ${PORT}`);
+    console.log(`[CD-Display] Setup complete: ${db.isSetupComplete()}`);
 });

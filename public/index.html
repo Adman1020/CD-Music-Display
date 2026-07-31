@@ -13,11 +13,62 @@
 </head>
 <body>
 
+    <!-- Setup Screen (shown on first launch before Spotify credentials are configured) -->
+    <div id="setup-screen">
+        <div class="setup-content">
+            <h1>CD Music Display</h1>
+            <p class="setup-subtitle">Let's connect your Spotify account. First, you'll need to create a Spotify Developer App.</p>
+            
+            <div class="setup-instructions">
+                <div class="setup-step">
+                    <span class="step-number">1</span>
+                    <div>
+                        <strong>Create a Spotify App</strong>
+                        <p>Go to <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and create a new app.</p>
+                    </div>
+                </div>
+                <div class="setup-step">
+                    <span class="step-number">2</span>
+                    <div>
+                        <strong>Set Redirect URI</strong>
+                        <p>In your app settings, add this redirect URI:<br>
+                        <code id="redirect-uri-display">http://localhost:3000/auth/callback</code></p>
+                    </div>
+                </div>
+                <div class="setup-step">
+                    <span class="step-number">3</span>
+                    <div>
+                        <strong>Enter your credentials below</strong>
+                        <p>Copy the Client ID and Client Secret from your Spotify app.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form id="setup-form" class="setup-form">
+                <div class="form-group">
+                    <label for="setup-client-id">Spotify Client ID</label>
+                    <input type="text" id="setup-client-id" placeholder="e.g. a1b2c3d4e5f6..." required autocomplete="off" spellcheck="false">
+                </div>
+                <div class="form-group">
+                    <label for="setup-client-secret">Spotify Client Secret</label>
+                    <input type="password" id="setup-client-secret" placeholder="e.g. x9y8z7w6v5u4..." required autocomplete="off" spellcheck="false">
+                </div>
+                <div class="form-group">
+                    <label for="setup-base-url">Base URL <span class="optional">(optional)</span></label>
+                    <input type="url" id="setup-base-url" placeholder="http://localhost:3000" autocomplete="off" spellcheck="false">
+                    <p class="form-hint">Change this if running on a different host/port (e.g. http://192.168.1.50:3000)</p>
+                </div>
+                <button type="submit" class="btn-primary" id="setup-save-btn">Save &amp; Continue</button>
+                <p id="setup-error" class="form-error"></p>
+            </form>
+        </div>
+    </div>
+
     <!-- Login Screen -->
-    <div id="login-screen" class="active">
+    <div id="login-screen">
         <div class="login-content">
             <h1>CD Music Display</h1>
-            <p>Connect your Spotify account to bring your album collection to life.</p>
+            <p>Your Spotify credentials are configured. Connect your account to begin.</p>
             <button id="connect-spotify-btn" class="btn-primary">Connect with Spotify</button>
         </div>
     </div>
@@ -45,8 +96,8 @@
                         <img id="np-art" src="" alt="Album Art">
                     </div>
                     <div class="track-details">
-                        <div id="np-track" class="track-name">Track Name</div>
-                        <div id="np-artist" class="artist-name">Artist Name</div>
+                        <div id="np-track" class="track-name">No track playing</div>
+                        <div id="np-artist" class="artist-name">—</div>
                     </div>
                 </div>
 
@@ -84,8 +135,8 @@
                 <div class="setting-group">
                     <label>Display Mode</label>
                     <div class="segmented-control" id="setting-mode">
-                        <button data-value="spines" class="active">Spines</button>
-                        <button data-value="covers">Covers</button>
+                        <button data-value="spines">Spines</button>
+                        <button data-value="covers" class="active">Covers</button>
                         <button data-value="grid">Grid</button>
                     </div>
                 </div>
@@ -131,6 +182,27 @@
                         <!-- Populated dynamically -->
                     </select>
                 </div>
+
+                <hr class="settings-divider">
+
+                <div class="setting-group">
+                    <label class="section-label">Spotify Configuration</label>
+                    <div class="config-field">
+                        <label for="config-client-id">Client ID</label>
+                        <input type="text" id="config-client-id" placeholder="Your Spotify Client ID" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="config-field">
+                        <label for="config-client-secret">Client Secret</label>
+                        <input type="password" id="config-client-secret" placeholder="Your Spotify Client Secret" autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="config-field">
+                        <label for="config-base-url">Base URL</label>
+                        <input type="url" id="config-base-url" placeholder="http://localhost:3000" autocomplete="off" spellcheck="false">
+                    </div>
+                    <button id="btn-save-config" class="btn-secondary">Save Spotify Config</button>
+                </div>
+
+                <hr class="settings-divider">
                 
                 <div class="setting-actions">
                     <button id="btn-refresh-library" class="btn-secondary">Refresh Library</button>
