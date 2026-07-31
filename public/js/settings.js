@@ -17,10 +17,6 @@ export async function initSettings() {
     });
 
     // Segmented controls
-    setupSegmentedControl('setting-mode', (val) => {
-        setDisplayMode(val);
-        saveSetting('displayMode', val);
-    });
     
     setupSegmentedControl('setting-theme', (val) => {
         document.documentElement.setAttribute('data-theme', val);
