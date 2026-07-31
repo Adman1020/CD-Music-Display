@@ -10,6 +10,7 @@ let vVelocity = 0;
 let isDragging = false;
 let startDragX = 0;
 let lastDragX = 0;
+let overlayHideTimeout = null;
 
 const SPINE_WIDTH = 28;
 const CENTER_WIDTH = 300; // Matches the album-spine height exactly
@@ -176,15 +177,32 @@ function renderShelf() {
     }
     
     centerBox.addEventListener('click', (e) => {
-        // Toggle glass overlay
         const overlay = centerBox.querySelector('.glass-controls-overlay');
         if (overlay) {
-            // Prevent hiding if clicking buttons inside the overlay
-            if (!e.target.closest('.control-btn') && !e.target.closest('#glass-progress-container')) {
-                overlay.classList.toggle('hidden');
+            // If clicking inside a control, don't toggle visibility
+            if (e.target.closest('.control-btn') || e.target.closest('#glass-progress-container') || e.target.closest('.btn-primary')) {
+                // Keep the overlay alive by resetting the timeout
+                resetOverlayTimeout(overlay);
+                return;
+            }
+            
+            // Toggle visibility
+            overlay.classList.toggle('hidden');
+            
+            if (!overlay.classList.contains('hidden')) {
+                resetOverlayTimeout(overlay);
+            } else {
+                clearTimeout(overlayHideTimeout);
             }
         }
     });
+    
+    function resetOverlayTimeout(overlay) {
+        clearTimeout(overlayHideTimeout);
+        overlayHideTimeout = setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 5000);
+    }
     
     container.appendChild(centerBox);
     
@@ -257,6 +275,15 @@ function carouselLoop() {
                     vVelocity = 0;
                     const snapX = Math.round(vScrollX / itemWidth) * itemWidth;
                     vScrollX += (snapX - vScrollX) * 0.1;
+                }
+            }
+            
+            // Hide overlay if scrolling fast
+            if (Math.abs(vVelocity) > 0.5 || isDragging) {
+                const overlay = document.querySelector('.glass-controls-overlay');
+                if (overlay && !overlay.classList.contains('hidden')) {
+                    overlay.classList.add('hidden');
+                    clearTimeout(overlayHideTimeout);
                 }
             }
             

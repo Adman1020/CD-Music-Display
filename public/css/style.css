@@ -425,8 +425,7 @@ body {
     -webkit-backdrop-filter: blur(15px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    justify-content: space-between;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -437,14 +436,31 @@ body {
     pointer-events: auto;
 }
 
+.glass-play-album-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.glass-global-player {
+    width: 100%;
+    padding: 16px 12px 12px 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
 .glass-progress-container {
-    width: 80%;
+    width: 90%;
     height: 4px;
     background: rgba(255,255,255,0.2);
-    position: absolute;
-    bottom: 24px;
+    position: relative;
     border-radius: 2px;
     cursor: pointer;
+    margin-top: 4px;
 }
 
 #glass-progress-bar {
@@ -463,8 +479,16 @@ body {
 
 .glass-track-info {
     text-align: center;
-    margin-bottom: 24px;
-    width: 90%;
+    width: 100%;
+}
+
+.glass-track-info .track-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.glass-track-info .artist-name {
+    font-size: 11px;
 }
 
 .glass-playback-controls {
@@ -503,6 +527,19 @@ body {
 .control-btn svg {
     width: 24px;
     height: 24px;
+}
+
+.small-btn {
+    width: 36px;
+    height: 36px;
+}
+.small-btn svg {
+    width: 20px;
+    height: 20px;
+}
+.small-play-btn {
+    width: 40px;
+    height: 40px;
 }
 
 .play-btn {

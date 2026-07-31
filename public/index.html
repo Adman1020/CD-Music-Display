@@ -162,28 +162,7 @@
 
         <!-- Glass Controls Template -->
         <template id="glass-overlay-template">
-            <div class="glass-controls-overlay">
-                <div class="glass-progress-container" id="glass-progress-container">
-                    <div id="glass-progress-bar">
-                        <div id="glass-progress-fill"></div>
-                    </div>
-                </div>
-                <div class="glass-track-info">
-                    <div id="glass-np-track" class="track-name">No track playing</div>
-                    <div id="glass-np-artist" class="artist-name">—</div>
-                </div>
-                <div class="glass-playback-controls">
-                    <button id="btn-prev" class="control-btn" aria-label="Previous Track">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                    </button>
-                    <button id="btn-play-pause" class="control-btn play-btn" aria-label="Play/Pause">
-                        <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                    </button>
-                    <button id="btn-next" class="control-btn" aria-label="Next Track">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                    </button>
-                </div>
+            <div class="glass-controls-overlay hidden">
                 <div class="glass-device-picker">
                     <button id="btn-device-picker" class="control-btn device-btn" aria-label="Connect to a device">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h20V2H2v20zm4-5h12v-2H6v2zm0-4h12v-2H6v2zm0-4h12V7H6v2z"/></svg>
@@ -196,6 +175,34 @@
                         <ul id="device-list" class="device-list">
                             <!-- Devices populated dynamically -->
                         </ul>
+                    </div>
+                </div>
+
+                <div class="glass-play-album-container">
+                    <button id="btn-play-this-album" class="btn-primary play-large">Play This Album</button>
+                </div>
+
+                <div class="glass-global-player">
+                    <div class="glass-track-info">
+                        <div id="glass-np-track" class="track-name">No track playing</div>
+                        <div id="glass-np-artist" class="artist-name">—</div>
+                    </div>
+                    <div class="glass-playback-controls">
+                        <button id="btn-prev" class="control-btn small-btn" aria-label="Previous Track">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                        </button>
+                        <button id="btn-play-pause" class="control-btn play-btn small-play-btn" aria-label="Play/Pause">
+                            <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        </button>
+                        <button id="btn-next" class="control-btn small-btn" aria-label="Next Track">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                        </button>
+                    </div>
+                    <div class="glass-progress-container" id="glass-progress-container">
+                        <div id="glass-progress-bar">
+                            <div id="glass-progress-fill"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -106,10 +106,21 @@ function updateNowPlayingFromAPI(state) {
 function setupDelegatedEvents() {
     document.body.addEventListener('click', async (e) => {
         
-        // Play / Pause
+        // Play / Pause (Global)
         if (e.target.closest('#btn-play-pause')) {
             e.stopPropagation();
             await togglePlay();
+        }
+
+        // Play This Album
+        if (e.target.closest('#btn-play-this-album')) {
+            e.stopPropagation();
+            if (currentSelectedAlbum) {
+                playAlbum(currentSelectedAlbum.uri);
+                // Hide overlay after playing
+                const overlay = document.querySelector('.glass-controls-overlay');
+                if (overlay) overlay.classList.add('hidden');
+            }
         }
         
         // Next
@@ -167,42 +178,18 @@ function setupDelegatedEvents() {
 }
 
 async function togglePlay() {
-    // Option A logic:
-    // Check if the current focused album in the center is the one that's currently playing globally.
-    // If it is, just toggle play/pause on the active device.
-    // If it isn't, play the focused album from the start.
+    // Option B logic:
+    // Just toggle global playback for the active device
     
-    if (globalState && globalState.item && globalState.item.album && currentSelectedAlbum) {
-        if (globalState.item.album.id === currentSelectedAlbum.id) {
-            // It's the same album! Just toggle.
-            if (globalState.is_playing) {
-                await fetch('/api/player/pause', { method: 'PUT' });
-            } else {
-                const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
-                await fetch('/api/player/play', { 
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: activeDevice })
-                });
-            }
-        } else {
-            // Different album. Play the focused one.
-            playAlbum(currentSelectedAlbum.uri);
-        }
+    if (globalState && globalState.is_playing) {
+        await fetch('/api/player/pause', { method: 'PUT' });
     } else {
-        // Fallback if no global state (nothing playing anywhere)
-        if (currentSelectedAlbum) {
-            playAlbum(currentSelectedAlbum.uri);
-        } else if (globalState && globalState.is_playing) {
-            await fetch('/api/player/pause', { method: 'PUT' });
-        } else {
-            const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
-            await fetch('/api/player/play', { 
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: activeDevice })
-            });
-        }
+        const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
+        await fetch('/api/player/play', { 
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: activeDevice })
+        });
     }
     
     // Quick optimistic sync
