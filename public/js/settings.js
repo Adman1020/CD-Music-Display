@@ -1,5 +1,5 @@
 import { logout } from './auth.js';
-import { loadAlbums, setDisplayMode, setSortOrder, setAutoScroll } from './shelf.js';
+import { loadAlbums, setSortOrder } from './shelf.js';
 import { updateSleepTimeout } from './app.js';
 
 export async function initSettings() {
@@ -43,11 +43,7 @@ export async function initSettings() {
         saveSetting('deviceId', e.target.value);
     });
 
-    // Toggle
-    document.getElementById('setting-autoscroll').addEventListener('change', (e) => {
-        setAutoScroll(e.target.checked);
-        saveSetting('autoScroll', e.target.checked);
-    });
+
 
     // Spotify config save button
     document.getElementById('btn-save-config').addEventListener('click', saveSpotifyConfig);
@@ -91,10 +87,7 @@ async function loadSettings() {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
             }
-            if (settings.autoScroll !== undefined) {
-                document.getElementById('setting-autoscroll').checked = settings.autoScroll;
-                setAutoScroll(settings.autoScroll);
-            }
+
         }
     } catch (e) {
         console.warn("Failed to load settings from server, using defaults", e);
