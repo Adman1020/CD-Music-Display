@@ -225,9 +225,8 @@ function renderShelf() {
         }
         
         displayAlbums.forEach((album, index) => {
-        let el = document.createElement('div');
-        
-        if (displayMode === 'spines') {
+            let el = document.createElement('div');
+            
             el.className = 'album-spine';
             el.dataset.id = album.id;
             el.dataset.name = album.name;
