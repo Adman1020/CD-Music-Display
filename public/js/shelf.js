@@ -352,8 +352,6 @@ function carouselLoop() {
             const centerFloatIndex = -vScrollX / itemWidth;
             const centerIndex = Math.round(centerFloatIndex);
             
-            const spines = container.querySelectorAll('.album-spine');
-            
             spines.forEach((spine) => {
                 const i = parseInt(spine.dataset.index);
                 
