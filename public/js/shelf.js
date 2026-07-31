@@ -5,6 +5,7 @@ let displayMode = 'covers';
 let sortOrder = 'added';
 let autoScrollInterval;
 let spineObserver = null;
+let centerCalculateTimeout = null;
 
 // Lazy import to avoid circular dependency
 function notify(msg, type) {
@@ -19,6 +20,14 @@ export async function initShelf() {
     // Close overlay when tapping outside detail-content
     document.getElementById('album-detail-overlay').addEventListener('click', (e) => {
         if (e.target.id === 'album-detail-overlay') hideAlbumDetail();
+    });
+    
+    const container = document.getElementById('shelf-container');
+    container.addEventListener('scroll', () => {
+        if (displayMode === 'spines') {
+            if (centerCalculateTimeout) cancelAnimationFrame(centerCalculateTimeout);
+            centerCalculateTimeout = requestAnimationFrame(updateCenteredSpine);
+        }
     });
     
     // Load albums
@@ -151,6 +160,8 @@ function renderShelf() {
     
     if (displayMode === 'spines') {
         initSpineObserver();
+        // Give it a tiny delay for layout to finish before finding the center
+        setTimeout(updateCenteredSpine, 100);
     }
     
     sorted.forEach(album => {
@@ -234,4 +245,34 @@ function handlePlayAlbum() {
         playAlbum(currentSelectedAlbum.uri);
         hideAlbumDetail();
     }
+}
+
+function updateCenteredSpine() {
+    const container = document.getElementById('shelf-container');
+    if (!container || displayMode !== 'spines') return;
+    
+    const containerCenter = container.clientWidth / 2;
+    const scrollLeft = container.scrollLeft;
+    
+    const spines = container.querySelectorAll('.album-spine');
+    let closestSpine = null;
+    let minDistance = Infinity;
+    
+    spines.forEach(spine => {
+        // Center of the spine relative to the container's visible area
+        const spineCenter = spine.offsetLeft - scrollLeft + (spine.offsetWidth / 2);
+        const distance = Math.abs(containerCenter - spineCenter);
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestSpine = spine;
+        }
+    });
+    
+    spines.forEach(spine => {
+        if (spine === closestSpine) {
+            spine.classList.add('is-expanded');
+        } else {
+            spine.classList.remove('is-expanded');
+        }
+    });
 }

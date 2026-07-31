@@ -208,12 +208,18 @@ router.get('/albums/:id/spine', async (req, res) => {
         let spineUrl = null;
         const images = caaData.images || [];
         
+        const getUrl = (img) => {
+            if (img.thumbnails && img.thumbnails['500']) return img.thumbnails['500'];
+            if (img.thumbnails && img.thumbnails['250']) return img.thumbnails['250'];
+            return img.image;
+        };
+        
         const spineImg = images.find(img => img.types && img.types.includes('Spine'));
         if (spineImg) {
-            spineUrl = spineImg.image;
+            spineUrl = getUrl(spineImg);
         } else {
             const backImg = images.find(img => img.types && img.types.includes('Back'));
-            if (backImg) spineUrl = backImg.image;
+            if (backImg) spineUrl = getUrl(backImg);
         }
         
         db.setSpineCache(spotifyId, spineUrl);

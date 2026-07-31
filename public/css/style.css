@@ -330,7 +330,7 @@ body {
     position: relative;
     overflow: hidden;
     cursor: pointer;
-    transition: transform var(--transition);
+    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s, border-radius 0.4s;
     box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     background-color: #222;
 }
@@ -343,6 +343,7 @@ body {
     filter: blur(30px) saturate(1.5);
     transform: scale(2);
     z-index: 0;
+    transition: filter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s;
 }
 
 .album-spine::after {
@@ -362,18 +363,20 @@ body {
 
 .album-spine-text {
     position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%) rotate(-90deg);
-    transform-origin: bottom left;
+    inset: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
     white-space: nowrap;
-    width: 280px;
     color: rgba(255,255,255,0.95);
     font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.5px;
     text-shadow: 1px 1px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
     z-index: 2;
+    transition: opacity 0.4s;
 }
 
 /* When authentic spine is loaded */
@@ -383,7 +386,25 @@ body {
 }
 .album-spine.has-authentic-spine .album-spine-bg,
 .album-spine.has-authentic-spine .album-spine-text {
-    display: none;
+    opacity: 0;
+}
+
+/* Expanded State */
+.album-spine.is-expanded {
+    width: 300px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    background-image: none !important;
+}
+
+.album-spine.is-expanded .album-spine-bg {
+    opacity: 1;
+    filter: none;
+    transform: none;
+}
+
+.album-spine.is-expanded .album-spine-text {
+    opacity: 0;
 }
 
 /* Covers Mode (Horizontal Scroll) */
