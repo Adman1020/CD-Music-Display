@@ -80,9 +80,6 @@ async function loadSettings() {
             const settings = await res.json();
             
             // Apply settings to UI
-            if (settings.displayMode) {
-                document.querySelector(`#setting-mode button[data-value="${settings.displayMode}"]`)?.click();
-            }
             if (settings.theme) {
                 document.querySelector(`#setting-theme button[data-value="${settings.theme}"]`)?.click();
             }
