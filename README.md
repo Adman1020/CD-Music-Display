@@ -21,7 +21,7 @@
 
 ## Screenshots
 
-![CD Music Display UI](screenshot.png)
+![CD Music Display UI](screenshot-wide.png)
 
 ## Quick Start (Docker)
 
