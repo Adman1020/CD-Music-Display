@@ -310,14 +310,62 @@ body {
 /* Shelf Modes */
 
 /* Spines Mode */
+#hero-cover-container {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 50;
+    transition: opacity var(--transition);
+}
+#hero-cover-container.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+#hero-cover-img {
+    width: 320px;
+    height: 320px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    object-fit: cover;
+    margin-bottom: 20px;
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+#hero-cover-img:active {
+    transform: scale(0.98);
+}
+.hero-cover-info {
+    text-align: center;
+    width: 100%;
+}
+.hero-cover-info h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.hero-cover-info h3 {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
 #shelf-container.shelf-mode-spines {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    align-items: center;
+    align-items: flex-end;
     gap: 4px;
-    padding: 0 40px;
+    padding: 420px 50vw 20px 50vw;
     scroll-snap-type: x mandatory;
 }
 
@@ -330,7 +378,7 @@ body {
     position: relative;
     overflow: hidden;
     cursor: pointer;
-    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.2s, border-radius 0.4s;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 2px 0 10px rgba(0,0,0,0.5);
     background-color: #222;
 }
@@ -389,22 +437,14 @@ body {
     opacity: 0;
 }
 
-/* Expanded State */
-.album-spine.is-expanded {
-    width: 300px;
-    border-radius: var(--radius-md);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    background-image: none !important;
+/* Selected State */
+.album-spine.is-selected {
+    transform: translateY(-20px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8);
 }
 
-.album-spine.is-expanded .album-spine-bg {
-    opacity: 1;
-    filter: none;
-    transform: none;
-}
-
-.album-spine.is-expanded .album-spine-text {
-    opacity: 0;
+.album-spine.is-selected::after {
+    background: linear-gradient(to right, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 10%, rgba(0,0,0,0.4) 100%);
 }
 
 /* Covers Mode (Horizontal Scroll) */

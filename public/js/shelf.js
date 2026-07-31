@@ -72,7 +72,18 @@ export async function loadAlbums(forceRefresh = false) {
 export function setDisplayMode(mode) {
     displayMode = mode;
     const container = document.getElementById('shelf-container');
+    const heroContainer = document.getElementById('hero-cover-container');
+    
     container.className = `shelf-mode-${mode}`;
+    
+    if (heroContainer) {
+        if (mode === 'spines') {
+            heroContainer.classList.remove('hidden');
+        } else {
+            heroContainer.classList.add('hidden');
+        }
+    }
+    
     renderShelf();
 }
 
@@ -172,6 +183,7 @@ function renderShelf() {
             el.dataset.id = album.id;
             el.dataset.name = album.name;
             el.dataset.artist = album.artist;
+            el.dataset.image = album.image || '';
             
             const bg = document.createElement('div');
             bg.className = 'album-spine-bg';
@@ -251,16 +263,17 @@ function updateCenteredSpine() {
     const container = document.getElementById('shelf-container');
     if (!container || displayMode !== 'spines') return;
     
-    const containerCenter = container.clientWidth / 2;
-    const scrollLeft = container.scrollLeft;
+    // In our new CSS, padding-left is 50vw. The exact center of the container's visible area is container.scrollLeft.
+    // Actually, with padding 50vw, the first item is naturally at the center when scrollLeft is 0.
+    // The visual center is scrollLeft + (container.clientWidth / 2)
+    const containerCenter = container.scrollLeft + (container.clientWidth / 2);
     
     const spines = container.querySelectorAll('.album-spine');
     let closestSpine = null;
     let minDistance = Infinity;
     
     spines.forEach(spine => {
-        // Center of the spine relative to the container's visible area
-        const spineCenter = spine.offsetLeft - scrollLeft + (spine.offsetWidth / 2);
+        const spineCenter = spine.offsetLeft + (spine.offsetWidth / 2);
         const distance = Math.abs(containerCenter - spineCenter);
         if (distance < minDistance) {
             minDistance = distance;
@@ -270,9 +283,20 @@ function updateCenteredSpine() {
     
     spines.forEach(spine => {
         if (spine === closestSpine) {
-            spine.classList.add('is-expanded');
+            spine.classList.add('is-selected');
         } else {
-            spine.classList.remove('is-expanded');
+            spine.classList.remove('is-selected');
         }
     });
+    
+    if (closestSpine) {
+        document.getElementById('hero-cover-img').src = closestSpine.dataset.image;
+        document.getElementById('hero-cover-title').textContent = closestSpine.dataset.name;
+        document.getElementById('hero-cover-artist').textContent = closestSpine.dataset.artist;
+        
+        document.getElementById('hero-cover-img').onclick = () => {
+            const albumObj = allAlbums.find(a => String(a.id) === String(closestSpine.dataset.id));
+            if (albumObj) showAlbumDetail(albumObj);
+        };
+    }
 }
