@@ -353,8 +353,9 @@ async function processNextAlbum() {
         
         // Determine courteous rate limit delay
         let delayMs = 3000; // Default safe rate limit for Cover Art Archive & MusicBrainz
-        if (result.usedAi && config.aiRateLimit) {
-            const reqPerMin = parseInt(config.aiRateLimit, 10) || 1;
+        const aiRateLimit = db.getConfig('aiRateLimit');
+        if (result.usedAi && aiRateLimit) {
+            const reqPerMin = parseInt(aiRateLimit, 10) || 1;
             delayMs = Math.max(3000, (60 / reqPerMin) * 1000);
         }
         
