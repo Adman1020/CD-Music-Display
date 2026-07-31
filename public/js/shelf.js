@@ -12,6 +12,7 @@ let startDragX = 0;
 let lastDragX = 0;
 let dragDistance = 0;
 let isCenterPoppedOut = true;
+let pendingPopOutIndex = null;
 let overlayHideTimeout = null;
 
 const SPINE_WIDTH = 28;
@@ -218,19 +219,29 @@ function renderShelf() {
     closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         isCenterPoppedOut = false;
+        pendingPopOutIndex = null;
         centerBox.classList.add('folding-away');
         setTimeout(() => {
             centerBox.style.display = 'none';
             centerBox.classList.remove('folding-away');
+            const overlay = centerBox.querySelector('.glass-controls-overlay');
+            if (overlay && !overlay.classList.contains('hidden')) {
+                overlay.classList.add('hidden');
+            }
         }, 300);
     });
-    centerBox.appendChild(closeBtn);
     
-    // Inject the Glass Overlay Template
+    // Inject the Glass Overlay Template and place closeBtn inside it
     const template = document.getElementById('glass-overlay-template');
     if (template) {
         const overlayNode = template.content.cloneNode(true);
+        const overlayContainer = overlayNode.querySelector('.glass-controls-overlay');
+        if (overlayContainer) {
+            overlayContainer.appendChild(closeBtn);
+        }
         centerBox.appendChild(overlayNode);
+    } else {
+        centerBox.appendChild(closeBtn);
     }
     
     centerBox.addEventListener('click', (e) => {
@@ -312,20 +323,29 @@ function renderShelf() {
         el.addEventListener('click', () => {
             if (dragDistance > 5) return;
             
-            // Reopen center pop-out box if it was closed
             const box = document.getElementById('static-center-box');
+            const diff = parseFloat(el.dataset.relativeFloat || 0);
+            const w = parseFloat(el.dataset.width || SPINE_WIDTH);
+            const idx = parseInt(el.dataset.index);
+            
+            // Reopen center pop-out box if it was closed
             if (!isCenterPoppedOut || (box && box.style.display === 'none')) {
-                isCenterPoppedOut = true;
-                if (box) {
-                    box.style.display = 'block';
-                    box.classList.add('folding-out');
-                    setTimeout(() => box.classList.remove('folding-out'), 300);
+                // If already at the center, open immediately
+                if (Math.abs(diff) < 0.2 && Math.abs(vVelocity) < 0.2) {
+                    isCenterPoppedOut = true;
+                    pendingPopOutIndex = null;
+                    if (box) {
+                        box.style.display = 'block';
+                        box.classList.add('folding-out');
+                        setTimeout(() => box.classList.remove('folding-out'), 300);
+                    }
+                } else {
+                    // Otherwise defer opening until the album scrolls to the middle
+                    pendingPopOutIndex = idx;
                 }
             }
             
             // Smoothly scroll this item to center
-            const diff = parseFloat(el.dataset.relativeFloat || 0);
-            const w = parseFloat(el.dataset.width || SPINE_WIDTH);
             vVelocity = -diff * (w + GAP) * 0.1; 
         });
         
@@ -380,6 +400,27 @@ function carouselLoop() {
             // Find which item is in the center
             let centerItemIndex = snapC % allAlbums.length;
             if (centerItemIndex < 0) centerItemIndex += allAlbums.length;
+            
+            // If waiting for clicked album to arrive in center before pop-out animation
+            if (pendingPopOutIndex !== null && !isDragging) {
+                let targetIndex = pendingPopOutIndex % allAlbums.length;
+                if (targetIndex < 0) targetIndex += allAlbums.length;
+                
+                // When we arrive close to the target center index and velocity has settled down
+                if (centerItemIndex === targetIndex && Math.abs(offset) < 0.35 && Math.abs(vVelocity) < 2.0) {
+                    pendingPopOutIndex = null;
+                    isCenterPoppedOut = true;
+                    const box = document.getElementById('static-center-box');
+                    if (box) {
+                        box.style.display = 'block';
+                        box.classList.add('folding-out');
+                        setTimeout(() => box.classList.remove('folding-out'), 300);
+                    }
+                }
+            }
+            if (isDragging) {
+                pendingPopOutIndex = null; // Cancel deferred open if user interrupts by dragging
+            }
             
             // Update the static center box
             currentSelectedAlbum = allAlbums[centerItemIndex];
