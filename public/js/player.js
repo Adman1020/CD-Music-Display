@@ -117,9 +117,6 @@ function setupDelegatedEvents() {
             e.stopPropagation();
             if (currentSelectedAlbum) {
                 playAlbum(currentSelectedAlbum.uri);
-                // Hide overlay after playing
-                const overlay = document.querySelector('.glass-controls-overlay');
-                if (overlay) overlay.classList.add('hidden');
             }
         }
         
