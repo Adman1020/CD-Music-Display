@@ -312,16 +312,21 @@ body {
 /* Spines Mode */
 #shelf-container.shelf-mode-spines {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: center;
     gap: 4px;
-    align-content: flex-start;
-    padding: 10px;
+    padding: 0 40px;
+    scroll-snap-type: x mandatory;
 }
 
 .album-spine {
-    width: 60px;
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+    width: 28px;
     height: 300px;
-    border-radius: var(--radius-sm);
+    border-radius: 2px;
     position: relative;
     overflow: hidden;
     cursor: pointer;
@@ -364,9 +369,10 @@ body {
     white-space: nowrap;
     width: 280px;
     color: rgba(255,255,255,0.95);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5);
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
     z-index: 2;
 }
 
