@@ -18,6 +18,20 @@ export async function initSettings() {
         loadAlbums(true);
         panel.classList.remove('open');
     });
+    const clearSpinesBtn = document.getElementById('btn-clear-spines');
+    if (clearSpinesBtn) {
+        clearSpinesBtn.addEventListener('click', async () => {
+            const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
+            try {
+                await fetch('/api/worker/reprocess', { method: 'POST' });
+                notify('Spine image cache flushed! AI is re-checking all albums.');
+                loadAlbums(true);
+                panel.classList.remove('open');
+            } catch (e) {
+                notify('Failed to clear spine cache', 'error');
+            }
+        });
+    }
 
     // Segmented controls
     

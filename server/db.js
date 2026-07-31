@@ -225,6 +225,16 @@ module.exports = {
     },
     clearSpineCache: () => {
         db.prepare('DELETE FROM album_spines').run();
+        try {
+            const files = fs.readdirSync(dataDir);
+            files.forEach(f => {
+                if (f.startsWith('spine_') || f.startsWith('cover_')) {
+                    fs.unlinkSync(path.join(dataDir, f));
+                }
+            });
+        } catch (e) {
+            console.warn('Error clearing physical image cache:', e);
+        }
     },
     getSpineCount: () => {
         const res = db.prepare('SELECT COUNT(*) as count FROM album_spines').get();
