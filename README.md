@@ -56,17 +56,73 @@ Because this app acts as a remote control for your Spotify account, you must cre
 - **Database:** SQLite (via `better-sqlite3`) to securely store your configuration, access tokens, and cached album art.
 - **APIs:** Spotify Web API, Cover Art Archive, MusicBrainz, + AI Vision models (optional)
 
+## Artwork Engine & Variable-Width Shelf
+
+To recreate the realism of a physical CD rack, the background worker server uses a multi-tiered pipeline that independently resolves **Front Cover Art** and **Spine Artwork** for every album in your Spotify library.
+
+### Pipeline Workflow Diagram
+
+```mermaid
+graph TD
+    A[Worker Loop: Analyze Album] --> B[Step 1: Front Cover Art Resolution]
+    A --> C[Step 2: Spine Artwork Resolution]
+    
+    %% Front Cover Workflow
+    B --> B1[Query CoverArtArchive for 'Front' scan]
+    B1 -->|Found| B2(Pad to exact 300x300 Square<br/>Save as primary Cover Art)
+    B1 -->|Not Found| B3(Use Spotify High-Res Cover Art)
+    
+    %% Spine Workflow
+    C --> C1[Query CoverArtArchive for explicit 'Spine' scan]
+    C1 -->|Found Explicit Spine| C2(Calculate Aspect Ratio Width at 300px Height<br/>Min Width: 28px)
+    C2 --> C3(Result: 'spine' with Custom Width<br/>Hide HTML Text Overlay)
+    
+    C1 -->|Not Found| C4{Is AI Vision Enabled?}
+    C4 -->|Yes| C5[Send Back/Traycard/Booklet scans to AI Model]
+    C5 -->|AI Detects Spine Bounding Box| C6[Sharp Crops exact spine coordinate]
+    C6 --> C7(Calculate Custom Pixel Width at 300px Height<br/>Min Width: 28px)
+    C7 --> C8(Result: 'ai_crop' with Custom Width<br/>Hide HTML Text Overlay)
+    
+    C5 -->|AI Failed / Not Found| C9[Tier 3: Ultimate Fallback]
+    C4 -->|No| C9
+    C9 --> C10(Result: 'none' at Standard 28px Width<br/>Crop left-edge of Front Cover<br/>SHOW vertical HTML Text Overlay)
+```
+
+### Key Technical Details
+
+#### 1. Independent Retrieval & CD Format Protection
+* When scanning MusicBrainz and the Cover Art Archive, queries explicitly append `AND format:CD` to ensure we never accidentally import vinyl gatefold or audio cassette packaging dimensions.
+* Front cover scans and spine scans are resolved independently so that each can be sourced from its most faithful database representation.
+
+#### 2. Variable-Width CD Spines
+* On a physical shelf, standard single jewel cases are thin (~10mm / 28px), whereas double albums ("fatboxes"), digipaks, and deluxe cardboard sleeves are two to three times thicker.
+* Whenever an authentic spine scan is extracted (via heuristic tag or AI bounding box crop), our server-side `sharp` image processing engine inspects its true native dimensions and calculates its proportional width when scaled to a 300px shelf height:
+  $$\text{Target Width} = \max\left(28, \text{round}\left(300 \times \frac{\text{original width}}{\text{original height}}\right)\right)$$
+* Widths are clamped to a minimum of **28px** so single CD jewel cases remain easy to click, while thicker albums render dynamically wider on your shelf!
+
+#### 3. Square Front Cover Padding
+* When Cover Art Archive supplies a Front cover scan, it is often slightly rectangular due to scanner borders or folded booklet tabs. 
+* To prevent typography from being squished or distorted, the server uses `sharp` to pad non-square artwork into a perfectly uniform **300x300px square** canvas against a crisp black background.
+
+#### 4. Interactive Toggleable Pop-Out Box
+* Clicking any CD spine smoothly scrolls it to the center of the screen and pops out its 300x300px front cover art.
+* A small minimize button (`✕`) in the top right corner of the cover allows you to fold the album away. When clicked, a 3D jewel-case folding animation collapses the cover directly back into its native spine width on the rack, and adjacent CDs seamlessly slide together to close up any empty gaps.
+
+#### 5. Authentic Text Overlay Logic
+* Whenever a real scan is discovered (either an explicit Cover Art Archive spine or an AI-cropped inlay), the UI automatically hides the HTML vertical font overlay so you can appreciate the original typography printed on the CD artwork.
+* The vertical text overlay is only displayed when utilizing the fallback left-edge slice of the album cover art.
+
+---
+
 ## CD Spine Extraction & AI Vision
 
-Finding authentic CD spine scans for the physical UI is handled automatically in the background by the Node.js server. 
+By default, the server uses a **Heuristics Pipeline** to sanitize album titles (removing suffixes like "(Remastered)" or "(Deluxe Edition)") and query Cover Art Archive for explicit `Spine` tagged scans.
 
-By default, it uses a **Heuristics Pipeline** to sanitize album names and search the free Cover Art Archive database, intelligently cropping "Back" covers to extract spines. 
-
-If you want perfectly cropped spines for every album, you can enable **AI Vision** in the settings.
-- The server will download raw scans and send them to an AI Vision model (Gemini, OpenAI, or Claude) to find the exact bounding box of the spine, then physically crop it.
-- **Costs:** This relies entirely on your personal API key and will incur API costs from your provider. 
-- **Rate Limits:** To prevent surprise bills and API bans, you can configure a strict rate limit in the settings (defaulting to 1 request per minute). 
-- **Fallbacks:** AI models hallucinate. If the AI fails to find a spine or errors out, the server automatically falls back to the free heuristics method. You can monitor all of this in the live "Worker Logs" console in the settings menu.
+If an explicit spine is absent, you can enable **AI Vision** in the settings:
+- The background worker will download candidate scans (back covers, traycards, booklets) and send them to an AI model (Gemini, OpenAI, or Claude) to detect the precise bounding box of the spine, which is then physically cropped via `sharp` and saved locally.
+- **Costs:** This relies entirely on your personal API key and will incur API usage charges from your provider. 
+- **Rate Limits:** To prevent unexpected bills and API throttling, you can configure a courteous rate limit in the settings (defaulting to 1 request per minute). 
+- **Live Worker Logs:** You can monitor what the background extraction engine is doing in real-time by opening the "Worker Logs" diagnostic console directly inside the settings menu!
 
 ### Recommended AI Models
 > *Note: These recommendations are current as of the time of publishing. AI models evolve rapidly, so you may want to test newer versions as they become available.*
