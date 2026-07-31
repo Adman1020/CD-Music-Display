@@ -3,11 +3,14 @@ import { loadAlbums, setSortOrder } from './shelf.js';
 import { updateSleepTimeout } from './app.js';
 
 export async function initSettings() {
-    const toggleBtn = document.getElementById('settings-toggle');
     const closeBtn = document.getElementById('btn-close-settings');
     const panel = document.getElementById('settings-panel');
     
-    toggleBtn.addEventListener('click', () => panel.classList.add('open'));
+    document.body.addEventListener('click', (e) => {
+        if (e.target.closest('#settings-toggle')) {
+            panel.classList.add('open');
+        }
+    });
     closeBtn.addEventListener('click', () => panel.classList.remove('open'));
     
     document.getElementById('btn-logout').addEventListener('click', logout);

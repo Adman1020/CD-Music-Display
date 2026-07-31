@@ -721,31 +721,34 @@ body {
     height: 24px;
 }
 
-/* Settings Panel */
+/* Settings Panel - Fullscreen Overlay */
 #settings-panel {
     position: fixed;
-    top: 0;
-    right: -320px;
-    width: 320px;
-    height: 100%;
-    background: var(--bg-elevated);
-    z-index: 200;
-    transition: transform var(--transition);
-    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    inset: 0;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 1000;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
     display: flex;
     flex-direction: column;
+    transform: translateY(-10px);
+    opacity: 0;
+    pointer-events: none;
 }
 
 #settings-panel.open {
-    transform: translateX(-320px);
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .settings-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px;
-    border-bottom: 1px solid var(--border);
+    padding: 24px 48px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .close-btn {
@@ -762,9 +765,25 @@ body {
 }
 
 .settings-content {
-    padding: 24px;
-    overflow-y: auto;
     flex: 1;
+    display: flex;
+    flex-direction: row;
+    gap: 48px;
+    padding: 48px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: flex-start;
+}
+
+.settings-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 300px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 24px;
 }
 
 .setting-group {
