@@ -68,6 +68,20 @@ If you want perfectly cropped spines for every album, you can enable **AI Vision
 - **Rate Limits:** To prevent surprise bills and API bans, you can configure a strict rate limit in the settings (defaulting to 1 request per minute). 
 - **Fallbacks:** AI models hallucinate. If the AI fails to find a spine or errors out, the server automatically falls back to the free heuristics method. You can monitor all of this in the live "Worker Logs" console in the settings menu.
 
+### Recommended AI Models
+> *Note: These recommendations are current as of the time of publishing. AI models evolve rapidly, so you may want to test newer versions as they become available.*
+
+Since extracting a spine requires precise spatial reasoning (identifying a bounding box and outputting strict JSON coordinates), we recommend using flagship or highly capable multimodal models:
+
+1. **Google Gemini**
+   - **`gemini-1.5-pro`** *(Recommended)*: Flagship model. Incredible spatial reasoning; handles complex JSON bounding boxes flawlessly.
+   - **`gemini-1.5-flash`**: A faster, significantly cheaper alternative that is still highly capable of vision extraction.
+2. **Anthropic Claude**
+   - **`claude-3-5-sonnet-20240620`** *(Recommended)*: Anthropic's sweet-spot model. Often beats heavier models in vision tasks and is incredibly smart at deciphering cluttered CD back-cover scans.
+3. **OpenAI**
+   - **`gpt-4o`** *(Recommended)*: The current multimodal flagship. Very fast and highly accurate for visual JSON extraction.
+   - **`gpt-4o-mini`**: Their newest lightweight model. Highly cost-effective if you have a massive CD library to process.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
