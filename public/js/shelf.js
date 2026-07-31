@@ -10,6 +10,7 @@ let vVelocity = 0;
 let isDragging = false;
 let startDragX = 0;
 let lastDragX = 0;
+let dragDistance = 0;
 let overlayHideTimeout = null;
 
 const SPINE_WIDTH = 28;
@@ -24,11 +25,16 @@ function notify(msg, type) {
 export async function initShelf() {
     const container = document.getElementById('shelf-container');
     
-    // Virtual Carousel Events
+    // Virtual Carousel Events - 1 album per notch on mouse wheel
     container.addEventListener('wheel', (e) => {
-        if (e.target.closest('.settings-content') || e.target.closest('.popover-menu')) return;
-        vVelocity -= e.deltaY * 0.5;
-        vVelocity -= e.deltaX * 0.5;
+        if (e.target.closest('.settings-content') || e.target.closest('.popover-menu') || e.target.closest('.settings-overlay')) return;
+        const delta = e.deltaY || e.deltaX;
+        if (Math.abs(delta) >= 15) {
+            const dir = Math.sign(delta);
+            vVelocity -= dir * ((SPINE_WIDTH + GAP) * 0.1);
+        } else {
+            vVelocity -= delta * 0.1;
+        }
         e.preventDefault();
     }, { passive: false });
     
@@ -37,6 +43,7 @@ export async function initShelf() {
         isDragging = true;
         startDragX = e.clientX;
         lastDragX = e.clientX;
+        dragDistance = 0;
         vVelocity = 0;
         container.style.cursor = 'grabbing';
     });
@@ -44,6 +51,7 @@ export async function initShelf() {
     window.addEventListener('pointermove', (e) => {
         if (isDragging) {
             const delta = e.clientX - lastDragX;
+            dragDistance += Math.abs(delta);
             vScrollX += delta;
             vVelocity = delta * 0.5; // impart some momentum
             lastDragX = e.clientX;
@@ -54,6 +62,19 @@ export async function initShelf() {
         if (isDragging) {
             isDragging = false;
             container.style.cursor = '';
+        }
+    });
+    
+    // Arrow keys navigation
+    window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+        const itemWidth = SPINE_WIDTH + GAP;
+        if (e.key === 'ArrowRight') {
+            vVelocity = -(itemWidth * 0.1);
+            e.preventDefault();
+        } else if (e.key === 'ArrowLeft') {
+            vVelocity = (itemWidth * 0.1);
+            e.preventDefault();
         }
     });
     
@@ -141,10 +162,12 @@ async function fetchSpine(el) {
         const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
         if (res.ok) {
             const data = await res.json();
-            if (data.spineUrl) {
+            if (data.spineUrl && data.spineUrl !== '') {
                 el.style.backgroundImage = `url(${data.spineUrl})`;
-                el.dataset.spineType = data.spineType;
-                el.classList.add(`spine-type-${data.spineType}`);
+                const st = data.spineType || 'spine';
+                el.dataset.spineType = st;
+                el.classList.add(`spine-type-${st}`);
+                el.classList.add('has-authentic-spine');
             }
         }
     } catch(e) {
@@ -181,6 +204,7 @@ function renderShelf() {
     }
     
     centerBox.addEventListener('click', (e) => {
+        if (dragDistance > 5) return;
         const overlay = centerBox.querySelector('.glass-controls-overlay');
         if (overlay) {
             // If clicking inside a control, don't toggle visibility
@@ -256,6 +280,7 @@ function renderShelf() {
         el.appendChild(text);
         
         el.addEventListener('click', () => {
+            if (dragDistance > 5) return;
             // Smoothly scroll this item to center
             const itemWidth = SPINE_WIDTH + GAP;
             const diff = parseFloat(el.dataset.relativeFloat || 0);

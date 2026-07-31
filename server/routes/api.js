@@ -167,7 +167,7 @@ router.get('/albums/:id/spine', async (req, res) => {
         // 1. Check cache
         const cached = db.getSpineCache(spotifyId);
         if (cached) {
-            return res.json({ spineUrl: cached.spineUrl || null });
+            return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null });
         }
         
         // 2. Fetch MBID from MusicBrainz
@@ -206,6 +206,7 @@ router.get('/albums/:id/spine', async (req, res) => {
         
         // 4. Find spine or back image
         let spineUrl = null;
+        let spineType = 'none';
         const images = caaData.images || [];
         
         const getUrl = (img) => {
@@ -217,13 +218,17 @@ router.get('/albums/:id/spine', async (req, res) => {
         const spineImg = images.find(img => img.types && img.types.includes('Spine'));
         if (spineImg) {
             spineUrl = getUrl(spineImg);
+            spineType = 'spine';
         } else {
             const backImg = images.find(img => img.types && img.types.includes('Back'));
-            if (backImg) spineUrl = getUrl(backImg);
+            if (backImg) {
+                spineUrl = getUrl(backImg);
+                spineType = 'back';
+            }
         }
         
-        db.setSpineCache(spotifyId, spineUrl);
-        res.json({ spineUrl });
+        db.setSpineCache(spotifyId, spineUrl, spineType);
+        res.json({ spineUrl, spineType });
         
     } catch (e) {
         console.error("[CD-Display] Spine fetch error for", req.query.name, e.message);

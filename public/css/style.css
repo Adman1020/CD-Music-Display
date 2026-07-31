@@ -406,22 +406,20 @@ body {
 .album-spine.spine-type-ai_crop {
     background-position: center;
 }
-/* Hide the HTML text overlay because the scan has the real printed text */
-.album-spine.spine-type-spine .album-spine-text,
-.album-spine.spine-type-ai_crop .album-spine-text {
-    opacity: 0;
-}
 
 /* 2. 'Back' cover fallback crop */
 .album-spine.spine-type-back {
-    /* Focus on the far right edge of the back cover, where the folded spine sits */
     background-position: right center;
-    /* Zoom in heavily to crop just the edge */
     background-size: 800% auto;
 }
-/* Hide the HTML text overlay, assuming the crop catches the printed text */
+
+/* Hide HTML text overlay for ANY authentic spine image found */
+.album-spine.has-authentic-spine .album-spine-text,
+.album-spine.spine-type-spine .album-spine-text,
+.album-spine.spine-type-ai_crop .album-spine-text,
 .album-spine.spine-type-back .album-spine-text {
-    opacity: 0;
+    opacity: 0 !important;
+    display: none !important;
 }
 
 /* Static Center Display Box */
