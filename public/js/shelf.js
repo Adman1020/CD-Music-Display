@@ -249,7 +249,7 @@ function renderShelf() {
         
         let text = document.createElement('div');
         text.className = 'album-spine-text';
-        text.textContent = `${album.artist} — ${album.name}`;
+        text.innerHTML = `<span class="spine-artist">${album.artist}</span><span class="spine-divider">—</span><span class="spine-album">${album.name}</span>`;
         
         el.appendChild(bg);
         el.appendChild(text);
