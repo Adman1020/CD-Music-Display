@@ -68,47 +68,41 @@ graph TD
     A --> C[Step 2: Spine Artwork Resolution]
     
     %% Front Cover Workflow
-    B --> B1[Query CoverArtArchive for 'Front' scan]
-    B1 -->|Found| B2(Pad to exact 300x300 Square<br/>Save as primary Cover Art)
-    B1 -->|Not Found| B3(Use Spotify High-Res Cover Art)
+    B --> B1(Use Spotify High-Res Cover Art for optimal quality and consistency)
     
     %% Spine Workflow
     C --> C1[Query CoverArtArchive for explicit 'Spine' scan]
-    C1 -->|Found Explicit Spine| C2(Calculate Aspect Ratio Width at 300px Height<br/>Min Width: 28px)
-    C2 --> C3(Result: 'spine' with Custom Width<br/>Hide HTML Text Overlay)
+    C1 --> C2{Check Aspect Ratio}
+    C2 -->|Valid Thin Spine: ratio <= 0.35| C3(Calculate Proportional Width at 300px Height<br/>Clamp: 18px to 95px<br/>Result: 'spine' with Custom Width & Hide Text)
+    C2 -->|Too Wide: ratio > 0.35| C4[Reclassify as Full Traycard Scan for AI Crop]
     
-    C1 -->|Not Found| C4{Is AI Vision Enabled?}
-    C4 -->|Yes| C5[Send Back/Traycard/Booklet scans to AI Model]
-    C5 -->|AI Detects Spine Bounding Box| C6[Sharp Crops exact spine coordinate]
-    C6 --> C7(Calculate Custom Pixel Width at 300px Height<br/>Min Width: 28px)
-    C7 --> C8(Result: 'ai_crop' with Custom Width<br/>Hide HTML Text Overlay)
+    C1 -->|Not Found or Reclassified| C5{Is AI Vision Enabled?}
+    C4 --> C5
+    C5 -->|Yes| C6[Send Back/Traycard/Booklet scans to AI Model]
+    C6 -->|AI Detects Valid Bounding Box| C7[Sharp Crops exact spine coordinate<br/>Clamp Width: 18px to 95px<br/>Result: 'ai_crop' & Hide Text]
     
-    C5 -->|AI Failed / Not Found| C9[Tier 3: Ultimate Fallback]
-    C4 -->|No| C9
-    C9 --> C10(Result: 'none' at Standard 28px Width<br/>Crop left-edge of Front Cover<br/>SHOW vertical HTML Text Overlay)
+    C6 -->|AI Failed / Invalid Ratio| C8[Tier 3: Ultimate Fallback]
+    C5 -->|No| C8
+    C8 --> C9(Result: 'none' at Standard 28px Width<br/>Crop left-edge of Front Cover<br/>SHOW vertical HTML Text Overlay)
 ```
 
 ### Key Technical Details
 
-#### 1. Independent Retrieval & CD Format Protection
-* When scanning MusicBrainz and the Cover Art Archive, queries explicitly append `AND format:CD` to ensure we never accidentally import vinyl gatefold or audio cassette packaging dimensions.
-* Front cover scans and spine scans are resolved independently so that each can be sourced from its most faithful database representation.
+#### 1. Consistent High-Res Front Covers & CD Format Protection
+* Front cover art is strictly sourced from Spotify's official high-resolution album imagery to guarantee vibrant visual consistency across your catalog without uneven scanner borders or brightness artifacts.
+* When scanning MusicBrainz and the Cover Art Archive for CD spines, queries explicitly append `AND format:CD` to ensure we never accidentally import vinyl gatefold or audio cassette packaging dimensions.
 
-#### 2. Variable-Width CD Spines
-* On a physical shelf, standard single jewel cases are thin (~10mm / 28px), whereas double albums ("fatboxes"), digipaks, and deluxe cardboard sleeves are two to three times thicker.
-* Whenever an authentic spine scan is extracted (via heuristic tag or AI bounding box crop), our server-side `sharp` image processing engine inspects its true native dimensions and calculates its proportional width when scaled to a 300px shelf height:
-  $$\text{Target Width} = \max\left(28, \text{round}\left(300 \times \frac{\text{original width}}{\text{original height}}\right)\right)$$
-* Widths are clamped to a minimum of **28px** so single CD jewel cases remain easy to click, while thicker albums render dynamically wider on your shelf!
+#### 2. Strict Aspect Ratio Verification & Variable-Width CD Spines
+* On a physical shelf, slimline CD single cases are extremely thin (~18px), standard single jewel cases are medium (~28px), and double albums ("fatboxes") or deluxe digipaks are much thicker (up to ~95px).
+* Whenever a candidate scan is found on Cover Art Archive tagged as `Spine`, our server-side `sharp` image processing engine checks its geometry. Because uploaders frequently tag full unfolded back traycard scans as `Spine`, the server enforces an **Aspect Ratio Gatekeeper**: any image whose width is greater than 35% of its height is rejected as a direct spine and automatically forwarded to AI Vision to crop out the true spine flap!
+* Validated spine dimensions are proportionally calculated when scaled to a 300px shelf height:
+  $$\text{Target Width} = \min\left(95, \max\left(18, \text{round}\left(300 \times \frac{\text{original width}}{\text{original height}}\right)\right)\right)$$
 
-#### 3. Square Front Cover Padding
-* When Cover Art Archive supplies a Front cover scan, it is often slightly rectangular due to scanner borders or folded booklet tabs. 
-* To prevent typography from being squished or distorted, the server uses `sharp` to pad non-square artwork into a perfectly uniform **300x300px square** canvas against a crisp black background.
+#### 3. Interactive Toggleable Pop-Out Box & Sequential Animation
+* Clicking any CD spine smoothly scrolls it to the center of the screen first, waiting until the album arrives in the middle before activating a smooth 3D jewel-case pop-out animation without any cover art flickering.
+* A clean SVG minimize icon in the top right corner of the glassmorphic controls overlay allows you to fold the album away directly back into its native spine width on the rack, with adjacent CDs seamlessly sliding together to close up any empty gaps.
 
-#### 4. Interactive Toggleable Pop-Out Box
-* Clicking any CD spine smoothly scrolls it to the center of the screen and pops out its 300x300px front cover art.
-* A small minimize button (`✕`) in the top right corner of the cover allows you to fold the album away. When clicked, a 3D jewel-case folding animation collapses the cover directly back into its native spine width on the rack, and adjacent CDs seamlessly slide together to close up any empty gaps.
-
-#### 5. Authentic Text Overlay Logic
+#### 4. Authentic Text Overlay Logic
 * Whenever a real scan is discovered (either an explicit Cover Art Archive spine or an AI-cropped inlay), the UI automatically hides the HTML vertical font overlay so you can appreciate the original typography printed on the CD artwork.
 * The vertical text overlay is only displayed when utilizing the fallback left-edge slice of the album cover art.
 

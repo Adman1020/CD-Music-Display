@@ -426,7 +426,7 @@ function carouselLoop() {
             currentSelectedAlbum = allAlbums[centerItemIndex];
             const centerArt = document.getElementById('center-box-art');
             if (centerArt && currentSelectedAlbum) {
-                const displayCover = currentSelectedAlbum.coverUrl || currentSelectedAlbum.image;
+                const displayCover = currentSelectedAlbum.image || currentSelectedAlbum.coverUrl;
                 centerArt.style.backgroundImage = `url(${displayCover})`;
             }
             

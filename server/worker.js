@@ -117,27 +117,8 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
             return img.image;
         };
 
-        // 1. Resolve Cover Artwork (Independent)
-        const frontImg = images.find(img => img.types && img.types.includes('Front'));
-        if (frontImg) {
-            try {
-                log(`Downloading and padding square Front Cover for ${name}...`);
-                const frontRes = await fetch(getUrl(frontImg));
-                if (frontRes.ok) {
-                    const buf = Buffer.from(await frontRes.arrayBuffer());
-                    const filename = `cover_${album.id}.jpg`;
-                    await sharp(buf)
-                        .resize({ width: 300, height: 300, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
-                        .toFile(path.join(dataDir, filename));
-                    coverUrl = `/data/${filename}`;
-                }
-            } catch (ce) {
-                log(`Cover art padding failed, falling back to Spotify cover: ${ce.message}`);
-            }
-        }
-        if (!coverUrl) {
-            coverUrl = album.image || null;
-        }
+        // 1. Front Cover Artwork is strictly retrieved from Spotify for optimal reliability and consistency
+        coverUrl = album.image || null;
 
         // 2. Resolve Spine Artwork via Explicit CAA Tag (with Aspect Ratio validation)
         const spineImg = images.find(img => img.types && img.types.includes('Spine'));

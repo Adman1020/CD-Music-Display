@@ -11,8 +11,10 @@ if (!fs.existsSync(dataDir)) {
 
 const db = new Database(path.join(dataDir, 'cd-music-display.db'));
 
-// Enable WAL mode for better concurrent access
-db.pragma('journal_mode = WAL');
+// Ensure atomic direct-to-disk writes to prevent data loss across Docker Windows volume mount restarts
+try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (e) {}
+db.pragma('journal_mode = DELETE');
+db.pragma('synchronous = FULL');
 
 // Initialize tables
 db.exec(`
