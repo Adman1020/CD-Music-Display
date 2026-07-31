@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CD Music Display</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="active">
+        <div class="login-content">
+            <h1>CD Music Display</h1>
+            <p>Connect your Spotify account to bring your album collection to life.</p>
+            <button id="connect-spotify-btn" class="btn-primary">Connect with Spotify</button>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app">
+        <!-- Main Shelf Area -->
+        <main id="shelf-container" class="shelf-mode-covers">
+            <!-- Albums will be rendered here dynamically -->
+        </main>
+
+        <!-- Fixed Bottom Now Playing Bar -->
+        <footer id="now-playing-bar">
+            <!-- Progress Bar -->
+            <div id="progress-container">
+                <div id="progress-bar">
+                    <div id="progress-fill"></div>
+                    <div id="progress-handle"></div>
+                </div>
+            </div>
+            
+            <div class="now-playing-content">
+                <div class="track-info-container">
+                    <div class="album-art-thumbnail">
+                        <img id="np-art" src="" alt="Album Art">
+                    </div>
+                    <div class="track-details">
+                        <div id="np-track" class="track-name">Track Name</div>
+                        <div id="np-artist" class="artist-name">Artist Name</div>
+                    </div>
+                </div>
+
+                <div class="playback-controls">
+                    <button id="btn-prev" class="control-btn" aria-label="Previous Track">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button id="btn-play-pause" class="control-btn play-btn" aria-label="Play/Pause">
+                        <svg id="icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <button id="btn-next" class="control-btn" aria-label="Next Track">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                </div>
+
+                <div class="time-info">
+                    <span id="np-time-elapsed">0:00</span> / <span id="np-time-total">0:00</span>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Settings Toggle Button -->
+        <button id="settings-toggle" aria-label="Settings">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+        </button>
+
+        <!-- Settings Panel -->
+        <aside id="settings-panel">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="btn-close-settings" class="close-btn" aria-label="Close Settings">✕</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-group">
+                    <label>Display Mode</label>
+                    <div class="segmented-control" id="setting-mode">
+                        <button data-value="spines" class="active">Spines</button>
+                        <button data-value="covers">Covers</button>
+                        <button data-value="grid">Grid</button>
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <label for="setting-sort">Sort Order</label>
+                    <select id="setting-sort">
+                        <option value="added">Recently Added</option>
+                        <option value="name">Name A-Z</option>
+                        <option value="artist">Artist A-Z</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label>Theme</label>
+                    <div class="segmented-control" id="setting-theme">
+                        <button data-value="dark" class="active">Dark</button>
+                        <button data-value="dim">Dim</button>
+                    </div>
+                </div>
+
+                <div class="setting-group toggle-group">
+                    <label for="setting-autoscroll">Auto-Scroll</label>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-autoscroll">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label for="setting-sleep">Screen Sleep</label>
+                    <select id="setting-sleep">
+                        <option value="never">Never</option>
+                        <option value="10">10 min</option>
+                        <option value="30">30 min</option>
+                        <option value="60">1 hour</option>
+                    </select>
+                </div>
+
+                <div class="setting-group">
+                    <label for="setting-device">Playback Device</label>
+                    <select id="setting-device">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                
+                <div class="setting-actions">
+                    <button id="btn-refresh-library" class="btn-secondary">Refresh Library</button>
+                    <button id="btn-logout" class="btn-danger">Sign Out</button>
+                </div>
+                
+                <div class="settings-footer">
+                    <p>CD Music Display v1.0.0</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Album Detail Overlay -->
+        <div id="album-detail-overlay">
+            <button id="btn-close-detail" class="close-btn" aria-label="Close Detail">✕</button>
+            <div class="detail-content">
+                <div class="detail-hero">
+                    <div class="detail-art">
+                        <img id="detail-cover" src="" alt="Album Cover">
+                    </div>
+                    <div class="detail-info">
+                        <h2 id="detail-title">Album Title</h2>
+                        <h3 id="detail-artist">Artist Name</h3>
+                        <p id="detail-meta">Release Year • X Tracks</p>
+                        <button id="btn-play-album" class="btn-primary play-large">Play Album</button>
+                    </div>
+                </div>
+                <div class="track-list" id="detail-tracks">
+                    <!-- Tracks populated here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toast Notification Container -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Spotify Web Playback SDK -->
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/shelf.js"></script>
+    <script type="module" src="js/player.js"></script>
+    <script type="module" src="js/settings.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
