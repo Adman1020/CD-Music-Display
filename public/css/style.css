@@ -271,8 +271,8 @@ body {
 /* Shelf Container */
 #shelf-container {
     width: 100%;
-    height: calc(100vh - 80px); /* Leave room for now playing */
-    overflow-y: auto;
+    height: 100vh;
+    overflow-y: hidden;
     overflow-x: hidden;
     scroll-behavior: smooth;
     padding: 20px;
@@ -415,109 +415,63 @@ body {
 
 
 
-/* Now Playing Bar */
-#now-playing-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 80px;
-    background: rgba(20, 20, 22, 0.85);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+/* Glass Controls Overlay */
+.glass-controls-overlay {
+    position: absolute;
+    inset: 0;
     z-index: 100;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
 }
 
-#progress-container {
-    width: 100%;
+.glass-controls-overlay:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.glass-progress-container {
+    width: 80%;
     height: 4px;
-    background: var(--bg-elevated);
-    position: relative;
+    background: rgba(255,255,255,0.2);
+    position: absolute;
+    bottom: 24px;
+    border-radius: 2px;
     cursor: pointer;
 }
 
-#progress-bar {
+#glass-progress-bar {
     height: 100%;
     width: 100%;
     position: relative;
+    border-radius: 2px;
+    overflow: hidden;
 }
 
-#progress-fill {
+#glass-progress-fill {
     height: 100%;
     background-color: var(--accent);
     width: 0%;
-    position: absolute;
-    top: 0;
-    left: 0;
 }
 
-#progress-handle {
-    width: 12px;
-    height: 12px;
-    background-color: #fff;
-    border-radius: 50%;
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    left: 0%;
-    opacity: 0;
-    transition: opacity 0.2s;
-    box-shadow: 0 0 10px var(--accent);
+.glass-track-info {
+    text-align: center;
+    margin-bottom: 24px;
+    width: 90%;
 }
 
-#progress-container:active #progress-handle {
-    opacity: 1;
-}
-
-.now-playing-content {
+.glass-playback-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    height: 100%;
-    flex: 1;
-}
-
-.track-info-container {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 30%;
-}
-
-.album-art-thumbnail {
-    width: 50px;
-    height: 50px;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-}
-
-.album-art-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.track-details {
-    overflow: hidden;
-}
-
-.track-name {
-    font-weight: 600;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.artist-name {
-    font-size: 12px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    justify-content: center;
+    gap: 20px;
 }
 
 .playback-controls {
@@ -564,22 +518,10 @@ body {
     color: var(--bg-primary);
 }
 
-.time-info {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-    margin-right: 16px;
-}
-
-.right-controls {
-    width: 30%;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.device-picker-container {
-    position: relative;
+.glass-device-picker {
+    position: absolute;
+    top: 16px;
+    right: 16px;
 }
 
 .device-btn.active {
@@ -588,16 +530,16 @@ body {
 
 .popover-menu {
     position: absolute;
-    bottom: 60px;
+    top: 48px;
     right: 0;
-    width: 280px;
+    width: 240px;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     z-index: 200;
     overflow: hidden;
-    transform-origin: bottom right;
+    transform-origin: top right;
     transition: transform 0.2s, opacity 0.2s;
 }
 

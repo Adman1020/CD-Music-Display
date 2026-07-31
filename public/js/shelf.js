@@ -177,9 +177,21 @@ function renderShelf() {
     centerArt.id = 'center-box-art';
     centerBox.appendChild(centerArt);
     
-    centerBox.addEventListener('click', () => {
-        if (currentSelectedAlbum) {
-            showAlbumDetail(currentSelectedAlbum);
+    // Inject the Glass Overlay Template
+    const template = document.getElementById('glass-overlay-template');
+    if (template) {
+        const overlayNode = template.content.cloneNode(true);
+        centerBox.appendChild(overlayNode);
+    }
+    
+    centerBox.addEventListener('click', (e) => {
+        // Toggle glass overlay
+        const overlay = centerBox.querySelector('.glass-controls-overlay');
+        if (overlay) {
+            // Prevent hiding if clicking buttons inside the overlay
+            if (!e.target.closest('.control-btn') && !e.target.closest('#glass-progress-container')) {
+                overlay.classList.toggle('hidden');
+            }
         }
     });
     

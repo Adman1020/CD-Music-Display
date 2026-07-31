@@ -1,45 +1,12 @@
 import { getToken } from './auth.js';
+import { currentSelectedAlbum } from './shelf.js';
 
 let player;
 let deviceId;
-let currentPlaybackState = null;
-let animationFrameId;
+let globalState = null;
+let pollInterval = null;
 
 export function initPlayer() {
-    // UI bindings
-    document.getElementById('btn-play-pause').addEventListener('click', togglePlay);
-    document.getElementById('btn-next').addEventListener('click', nextTrack);
-    document.getElementById('btn-prev').addEventListener('click', prevTrack);
-    
-    const progressContainer = document.getElementById('progress-container');
-    progressContainer.addEventListener('click', handleSeek);
-    
-    // Device Picker bindings
-    const deviceBtn = document.getElementById('btn-device-picker');
-    const deviceMenu = document.getElementById('device-picker-menu');
-    const closeDeviceMenu = document.getElementById('btn-close-devices');
-    
-    deviceBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isHidden = deviceMenu.classList.contains('hidden');
-        if (isHidden) {
-            deviceMenu.classList.remove('hidden');
-            fetchAndRenderDevices();
-        } else {
-            deviceMenu.classList.add('hidden');
-        }
-    });
-    
-    closeDeviceMenu.addEventListener('click', () => {
-        deviceMenu.classList.add('hidden');
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.device-picker-container')) {
-            deviceMenu.classList.add('hidden');
-        }
-    });
-    
     // Wait for SDK to load
     window.onSpotifyWebPlaybackSDKReady = () => {
         player = new Spotify.Player({
@@ -51,133 +18,205 @@ export function initPlayer() {
             volume: 1.0
         });
 
-        // Error handling
         player.addListener('initialization_error', ({ message }) => { console.error(message); });
         player.addListener('authentication_error', ({ message }) => { console.error(message); });
         player.addListener('account_error', ({ message }) => { console.error(message); });
         player.addListener('playback_error', ({ message }) => { console.error(message); });
 
-        // Playback status updates
-        player.addListener('player_state_changed', state => {
-            currentPlaybackState = state;
-            updateNowPlaying(state);
-        });
-
-        // Ready
         player.addListener('ready', ({ device_id }) => {
-            console.log('Ready with Device ID', device_id);
+            console.log('Local Web Player Ready with Device ID', device_id);
             deviceId = device_id;
-            
-            // Auto-select this device if settings say so, or we could just notify
-            showNotification('Spotify Player Ready');
-            
-            // Dispatch custom event that device is ready (settings.js might listen)
+            import('./app.js').then(m => m.showNotification('Spotify Player Ready'));
             window.dispatchEvent(new CustomEvent('spotify-device-ready', { detail: { id: device_id }}));
         });
 
-        // Connect
         player.connect();
     };
+    
+    // Setup delegated event listeners for the dynamically injected glass controls
+    setupDelegatedEvents();
+    
+    // Start polling the global Spotify API state
+    startStatePolling();
 }
 
-function updateNowPlaying(state) {
-    if (!state) return;
+function startStatePolling() {
+    if (pollInterval) clearInterval(pollInterval);
     
-    const track = state.track_window.current_track;
-    
-    document.getElementById('np-track').textContent = track.name;
-    document.getElementById('np-artist').textContent = track.artists.map(a => a.name).join(', ');
-    
-    if (track.album.images.length > 0) {
-        document.getElementById('np-art').src = track.album.images[0].url;
-    }
-    
-    const playIcon = document.getElementById('icon-play');
-    const pauseIcon = document.getElementById('icon-pause');
-    
-    if (state.paused) {
-        playIcon.style.display = 'block';
-        pauseIcon.style.display = 'none';
-        cancelAnimationFrame(animationFrameId);
-    } else {
-        playIcon.style.display = 'none';
-        pauseIcon.style.display = 'block';
-        startProgressLoop();
-    }
-    
-    document.getElementById('np-time-total').textContent = formatTime(state.duration);
-    updateProgressBar(state.position, state.duration);
-}
-
-function startProgressLoop() {
-    cancelAnimationFrame(animationFrameId);
-    let lastTime = performance.now();
-    
-    const loop = (time) => {
-        if (currentPlaybackState && !currentPlaybackState.paused) {
-            const delta = time - lastTime;
-            lastTime = time;
-            
-            // Estimate new position
-            currentPlaybackState.position += delta;
-            if (currentPlaybackState.position > currentPlaybackState.duration) {
-                currentPlaybackState.position = currentPlaybackState.duration;
+    const poll = async () => {
+        try {
+            const res = await fetch('/api/player');
+            if (res.status === 200) {
+                const state = await res.json();
+                globalState = state;
+                updateNowPlayingFromAPI(state);
+            } else if (res.status === 204) {
+                // No active device / nothing playing
+                globalState = null;
+                updateNowPlayingFromAPI(null);
             }
-            
-            updateProgressBar(currentPlaybackState.position, currentPlaybackState.duration);
+        } catch (e) {
+            console.error("Polling error", e);
         }
-        animationFrameId = requestAnimationFrame(loop);
     };
     
-    animationFrameId = requestAnimationFrame(loop);
+    poll(); // initial
+    pollInterval = setInterval(poll, 2000);
 }
 
-function updateProgressBar(position, duration) {
-    const percent = (position / duration) * 100;
-    document.getElementById('progress-fill').style.width = `${percent}%`;
-    document.getElementById('progress-handle').style.left = `${percent}%`;
-    document.getElementById('np-time-elapsed').textContent = formatTime(position);
+function updateNowPlayingFromAPI(state) {
+    const trackEl = document.getElementById('glass-np-track');
+    const artistEl = document.getElementById('glass-np-artist');
+    const playIcon = document.getElementById('icon-play');
+    const pauseIcon = document.getElementById('icon-pause');
+    const progressFill = document.getElementById('glass-progress-fill');
+    
+    if (!trackEl) return; // UI not rendered yet
+    
+    if (!state || !state.item) {
+        trackEl.textContent = "No track playing";
+        artistEl.textContent = "—";
+        if (playIcon) playIcon.style.display = 'block';
+        if (pauseIcon) pauseIcon.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+        return;
+    }
+    
+    const track = state.item;
+    trackEl.textContent = track.name;
+    artistEl.textContent = track.artists.map(a => a.name).join(', ');
+    
+    if (state.is_playing) {
+        if (playIcon) playIcon.style.display = 'none';
+        if (pauseIcon) pauseIcon.style.display = 'block';
+    } else {
+        if (playIcon) playIcon.style.display = 'block';
+        if (pauseIcon) pauseIcon.style.display = 'none';
+    }
+    
+    if (progressFill && state.item.duration_ms) {
+        const percent = (state.progress_ms / state.item.duration_ms) * 100;
+        progressFill.style.width = `${percent}%`;
+    }
+    
+    // Note: We don't animate the progress bar smoothly here because it's global polling.
+    // A 2-second tick update is standard for Spotify remotes.
 }
 
-function formatTime(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const m = Math.floor(totalSeconds / 60);
-    const s = (totalSeconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-}
-
-async function handleSeek(e) {
-    if (!currentPlaybackState || !player) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const seekMs = Math.floor(percent * currentPlaybackState.duration);
-    await player.seek(seekMs);
+function setupDelegatedEvents() {
+    document.body.addEventListener('click', async (e) => {
+        
+        // Play / Pause
+        if (e.target.closest('#btn-play-pause')) {
+            e.stopPropagation();
+            await togglePlay();
+        }
+        
+        // Next
+        if (e.target.closest('#btn-next')) {
+            e.stopPropagation();
+            await fetch('/api/player/next', { method: 'POST' });
+            // Optimistic update
+            setTimeout(() => fetch('/api/player').then(r=>r.json()).then(updateNowPlayingFromAPI), 500);
+        }
+        
+        // Prev
+        if (e.target.closest('#btn-prev')) {
+            e.stopPropagation();
+            await fetch('/api/player/previous', { method: 'POST' });
+            setTimeout(() => fetch('/api/player').then(r=>r.json()).then(updateNowPlayingFromAPI), 500);
+        }
+        
+        // Seek
+        const progressContainer = e.target.closest('#glass-progress-container');
+        if (progressContainer) {
+            e.stopPropagation();
+            if (!globalState || !globalState.item) return;
+            const rect = progressContainer.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            const seekMs = Math.floor(percent * globalState.item.duration_ms);
+            await fetch('/api/player/seek', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ position_ms: seekMs })
+            });
+            setTimeout(() => fetch('/api/player').then(r=>r.json()).then(updateNowPlayingFromAPI), 500);
+        }
+        
+        // Device Picker Toggle
+        if (e.target.closest('#btn-device-picker')) {
+            e.stopPropagation();
+            const menu = document.getElementById('device-picker-menu');
+            if (menu) {
+                if (menu.classList.contains('hidden')) {
+                    menu.classList.remove('hidden');
+                    fetchAndRenderDevices();
+                } else {
+                    menu.classList.add('hidden');
+                }
+            }
+        }
+        
+        // Close Device Menu
+        if (e.target.closest('#btn-close-devices')) {
+            e.stopPropagation();
+            const menu = document.getElementById('device-picker-menu');
+            if (menu) menu.classList.add('hidden');
+        }
+    });
 }
 
 async function togglePlay() {
-    if (!player) return;
-    await player.togglePlay();
-}
-
-async function nextTrack() {
-    if (!player) return;
-    await player.nextTrack();
-}
-
-async function prevTrack() {
-    if (!player) return;
-    await player.previousTrack();
+    // Option A logic:
+    // Check if the current focused album in the center is the one that's currently playing globally.
+    // If it is, just toggle play/pause on the active device.
+    // If it isn't, play the focused album from the start.
+    
+    if (globalState && globalState.item && globalState.item.album && currentSelectedAlbum) {
+        if (globalState.item.album.id === currentSelectedAlbum.id) {
+            // It's the same album! Just toggle.
+            if (globalState.is_playing) {
+                await fetch('/api/player/pause', { method: 'PUT' });
+            } else {
+                const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
+                await fetch('/api/player/play', { 
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: activeDevice })
+                });
+            }
+        } else {
+            // Different album. Play the focused one.
+            playAlbum(currentSelectedAlbum.uri);
+        }
+    } else {
+        // Fallback if no global state (nothing playing anywhere)
+        if (currentSelectedAlbum) {
+            playAlbum(currentSelectedAlbum.uri);
+        } else if (globalState && globalState.is_playing) {
+            await fetch('/api/player/pause', { method: 'PUT' });
+        } else {
+            const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
+            await fetch('/api/player/play', { 
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: activeDevice })
+            });
+        }
+    }
+    
+    // Quick optimistic sync
+    setTimeout(() => fetch('/api/player').then(r=>r.json()).then(updateNowPlayingFromAPI), 500);
 }
 
 export async function playAlbum(contextUri) {
-    if (!deviceId) {
+    const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
+    if (!activeDevice) {
         import('./app.js').then(m => m.showNotification("Player not ready yet", "error"));
         return;
     }
     
     try {
-        const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
-        
         const res = await fetch('/api/player/play', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -203,17 +242,16 @@ async function fetchAndRenderDevices() {
         const data = await res.json();
         const devices = data.devices || [];
         const list = document.getElementById('device-list');
+        if (!list) return;
+        
         list.innerHTML = '';
-        
         const activeDevice = localStorage.getItem('activeDeviceId') || deviceId;
-        
         let isActiveDevicePlaying = false;
 
         devices.forEach(device => {
             const li = document.createElement('li');
             li.className = 'device-item';
             
-            // Highlight if active
             if (device.is_active || device.id === activeDevice) {
                 li.classList.add('active');
                 if (device.is_active) isActiveDevicePlaying = true;
@@ -233,12 +271,10 @@ async function fetchAndRenderDevices() {
             list.appendChild(li);
         });
         
-        // Update button color based on whether an active device is currently playing
         const btn = document.getElementById('btn-device-picker');
-        if (isActiveDevicePlaying) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
+        if (btn) {
+            if (isActiveDevicePlaying) btn.classList.add('active');
+            else btn.classList.remove('active');
         }
         
     } catch (e) {
@@ -256,10 +292,9 @@ async function transferPlayback(targetDeviceId) {
         
         if (res.ok) {
             localStorage.setItem('activeDeviceId', targetDeviceId);
-            document.getElementById('device-picker-menu').classList.add('hidden');
+            const menu = document.getElementById('device-picker-menu');
+            if (menu) menu.classList.add('hidden');
             import('./app.js').then(m => m.showNotification("Transferred playback"));
-            
-            // Re-render to update UI state
             setTimeout(fetchAndRenderDevices, 1000);
         } else {
             throw new Error('Transfer failed');
