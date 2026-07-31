@@ -26,6 +26,7 @@ export async function initShelf() {
     
     // Virtual Carousel Events
     container.addEventListener('wheel', (e) => {
+        if (e.target.closest('.settings-content') || e.target.closest('.popover-menu')) return;
         vVelocity -= e.deltaY * 0.5;
         vVelocity -= e.deltaX * 0.5;
         e.preventDefault();
@@ -207,6 +208,12 @@ function renderShelf() {
     function resetOverlayTimeout(overlay) {
         clearTimeout(overlayHideTimeout);
         overlayHideTimeout = setTimeout(() => {
+            const deviceMenu = document.getElementById('device-picker-menu');
+            if (deviceMenu && !deviceMenu.classList.contains('hidden')) {
+                // Keep checking later if the device menu is open
+                resetOverlayTimeout(overlay);
+                return;
+            }
             overlay.classList.add('hidden');
         }, 5000);
     }
