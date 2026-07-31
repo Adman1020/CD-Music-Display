@@ -12,7 +12,7 @@ let startDragX = 0;
 let lastDragX = 0;
 
 const SPINE_WIDTH = 28;
-const CENTER_WIDTH = 300;
+const CENTER_WIDTH = 320; // Matches the new CSS static center box width
 const GAP = 4;
 
 // Lazy import to avoid circular dependency
@@ -168,7 +168,24 @@ function renderShelf() {
     }
     initSpineObserver();
     
-    // Ensure we have enough elements to fill an ultra-wide screen to prevent void gaps
+    // Inject the static center box
+    const centerBox = document.createElement('div');
+    centerBox.id = 'static-center-box';
+    centerBox.className = 'active';
+    
+    const centerArt = document.createElement('div');
+    centerArt.id = 'center-box-art';
+    centerBox.appendChild(centerArt);
+    
+    centerBox.addEventListener('click', () => {
+        if (currentSelectedAlbum) {
+            showAlbumDetail(currentSelectedAlbum);
+        }
+    });
+    
+    container.appendChild(centerBox);
+    
+    // Ensure we have enough elements to fill an ultra-wide screen
     const containerWidth = window.innerWidth || 1920;
     const requiredElements = Math.ceil(containerWidth / (SPINE_WIDTH + GAP)) * 2;
     
@@ -195,12 +212,8 @@ function renderShelf() {
             bg.style.backgroundImage = `url(${album.image})`;
         }
         
-        // Jewel case parts
         const spineFrame = document.createElement('div');
         spineFrame.className = 'cd-spine-frame';
-        
-        const frontFrame = document.createElement('div');
-        frontFrame.className = 'cd-front-frame';
         
         let text = document.createElement('div');
         text.className = 'album-spine-text';
@@ -208,18 +221,13 @@ function renderShelf() {
         
         el.appendChild(bg);
         el.appendChild(spineFrame);
-        el.appendChild(frontFrame);
         el.appendChild(text);
         
         el.addEventListener('click', () => {
-            if (el.classList.contains('is-center')) {
-                showAlbumDetail(album);
-            } else {
-                // Smoothly scroll this item to center
-                const totalWidth = SPINE_WIDTH + GAP;
-                const diff = parseFloat(el.dataset.relativeFloat || 0);
-                vVelocity = -diff * totalWidth * 0.1; 
-            }
+            // Smoothly scroll this item to center
+            const itemWidth = SPINE_WIDTH + GAP;
+            const diff = parseFloat(el.dataset.relativeFloat || 0);
+            vVelocity = -diff * itemWidth * 0.15; 
         });
         
         spineObserver.observe(el);
@@ -230,8 +238,6 @@ function renderShelf() {
 let currentSelectedAlbum = null;
 
 async function showAlbumDetail(album) {
-    currentSelectedAlbum = album;
-    
     document.getElementById('detail-cover').src = album.image || '';
     document.getElementById('detail-title').textContent = album.name;
     document.getElementById('detail-artist').textContent = album.artist;
@@ -257,14 +263,14 @@ function handlePlayAlbum() {
     }
 }
 
-// Math-driven discrete packing virtual carousel loop
+// Fixed-gap discrete sliding math
 function carouselLoop() {
     if (allAlbums.length > 0) {
         const container = document.getElementById('shelf-container');
         if (container) {
             const centerX = container.clientWidth / 2;
             const spines = container.querySelectorAll('.album-spine');
-            const numAlbums = spines.length; // Use rendered element count
+            const numAlbums = spines.length;
             const itemWidth = SPINE_WIDTH + GAP;
             
             if (!isDragging) {
@@ -280,73 +286,62 @@ function carouselLoop() {
                 }
             }
             
+            // centerFloatIndex goes UP as we scroll LEFT
             const centerFloatIndex = -vScrollX / itemWidth;
+            const snapC = Math.round(centerFloatIndex);
+            const offset = centerFloatIndex - snapC; // ranges from -0.5 to 0.5
             
-            let elements = [];
+            // Dist from center to the start of the tightly packed spines
+            const gapDist = (CENTER_WIDTH / 2) + (SPINE_WIDTH / 2) + GAP;
+            
+            // Find which item is in the center
+            let centerItemIndex = snapC % allAlbums.length;
+            if (centerItemIndex < 0) centerItemIndex += allAlbums.length;
+            
+            // Update the static center box
+            currentSelectedAlbum = allAlbums[centerItemIndex];
+            const centerArt = document.getElementById('center-box-art');
+            if (centerArt && currentSelectedAlbum) {
+                centerArt.style.backgroundImage = `url(${currentSelectedAlbum.image})`;
+            }
+            
+            const half = numAlbums / 2;
+            
             spines.forEach((spine) => {
                 const i = parseInt(spine.dataset.index);
                 
-                // Calculate shortest distance wrapped around the array length
-                let relativeFloat = i - centerFloatIndex;
-                const half = numAlbums / 2;
+                // Calculate discrete position relative to the current snapped center
+                let rel = i - snapC;
                 
                 // Wrap logic for infinite loop
-                while (relativeFloat > half) relativeFloat -= numAlbums;
-                while (relativeFloat < -half) relativeFloat += numAlbums;
+                while (rel > half) rel -= numAlbums;
+                while (rel < -half) rel += numAlbums;
                 
-                spine.dataset.relativeFloat = relativeFloat;
-                const dist = Math.abs(relativeFloat);
+                spine.dataset.relativeFloat = rel - offset; // For click-to-scroll tracking
                 
-                let expansionRatio = 0;
-                if (dist < 1) expansionRatio = 1 - dist;
-                
-                const width = SPINE_WIDTH + (CENTER_WIDTH - SPINE_WIDTH) * expansionRatio;
-                elements.push({ spine, relativeFloat, width, dist });
-            });
-            
-            elements.sort((a, b) => a.relativeFloat - b.relativeFloat);
-            
-            // Find the element closest to relativeFloat = 0
-            let minIndex = 0;
-            let minDist = Infinity;
-            elements.forEach((e, i) => {
-                if (e.dist < minDist) {
-                    minDist = e.dist;
-                    minIndex = i;
-                }
-            });
-            
-            if (elements.length > 0) {
-                // Position the closest element
-                elements[minIndex].x = centerX + (elements[minIndex].relativeFloat * itemWidth);
-                
-                // Pack elements to the right
-                for (let i = minIndex + 1; i < elements.length; i++) {
-                    const prev = elements[i - 1];
-                    const curr = elements[i];
-                    curr.x = prev.x + (prev.width / 2) + GAP + (curr.width / 2);
-                }
-                
-                // Pack elements to the left
-                for (let i = minIndex - 1; i >= 0; i--) {
-                    const next = elements[i + 1];
-                    const curr = elements[i];
-                    curr.x = next.x - (next.width / 2) - GAP - (curr.width / 2);
-                }
-                
-                // Apply DOM updates
-                elements.forEach(e => {
-                    e.spine.style.left = `${e.x}px`;
-                    e.spine.style.width = `${e.width}px`;
-                    e.spine.style.transform = `translate(-50%, -50%)`;
+                if (rel === 0) {
+                    // This is the active center item; hide it so the static box can show its cover
+                    spine.style.opacity = '0';
+                    spine.style.pointerEvents = 'none';
+                } else {
+                    spine.style.opacity = '1';
+                    spine.style.pointerEvents = 'auto';
                     
-                    if (e.dist < 0.5) {
-                        e.spine.classList.add('is-center');
+                    let x;
+                    if (rel > 0) {
+                        // Right block (slides left, behind the box)
+                        x = centerX + gapDist + (rel - 1 - offset) * itemWidth;
                     } else {
-                        e.spine.classList.remove('is-center');
+                        // Left block (slides left, out from behind the box)
+                        x = centerX - gapDist + (rel + 1 - offset) * itemWidth;
                     }
-                });
-            }
+                    
+                    // Fixed width, pure 1D translation
+                    spine.style.left = `${x}px`;
+                    spine.style.width = `${SPINE_WIDTH}px`;
+                    spine.style.transform = `translate(-50%, -50%)`;
+                }
+            });
         }
     }
     
