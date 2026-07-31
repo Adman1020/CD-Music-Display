@@ -47,12 +47,25 @@ export async function initSettings() {
     // Spotify config save button
     document.getElementById('btn-save-config').addEventListener('click', saveSpotifyConfig);
     
+    // AI config toggle & save button
+    const aiToggle = document.getElementById('config-ai-toggle');
+    const aiContainer = document.getElementById('ai-settings-container');
+    aiToggle.addEventListener('change', (e) => {
+        aiContainer.style.display = e.target.checked ? 'block' : 'none';
+        saveSetting('useAiVision', e.target.checked ? 'true' : 'false');
+    });
+    document.getElementById('btn-save-ai').addEventListener('click', saveAiConfig);
+    
     // Load existing settings & config
     await loadSettings();
     await loadSpotifyConfig();
+    await loadAiConfig();
     await fetchDevices();
     
     window.addEventListener('spotify-device-ready', () => fetchDevices());
+    
+    // Start polling logs if panel is open
+    setInterval(pollWorkerLogs, 2000);
 }
 
 function setupSegmentedControl(id, callback) {
@@ -85,6 +98,10 @@ async function loadSettings() {
             if (settings.sleepTimeout) {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
+            }
+            if (settings.useAiVision === 'true') {
+                document.getElementById('config-ai-toggle').checked = true;
+                document.getElementById('ai-settings-container').style.display = 'block';
             }
 
         }
@@ -155,6 +172,69 @@ async function saveSpotifyConfig() {
     } catch (e) {
         console.error("Failed to save Spotify config", e);
         notify('Failed to save configuration', 'error');
+    }
+}
+
+async function loadAiConfig() {
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const config = await res.json();
+            if (config.aiProvider) document.getElementById('config-ai-provider').value = config.aiProvider;
+            if (config.aiApiKey) document.getElementById('config-ai-key').placeholder = "••••••••••••••••";
+            if (config.aiModel) document.getElementById('config-ai-model').value = config.aiModel;
+            if (config.aiRateLimit) document.getElementById('config-ai-rate').value = config.aiRateLimit;
+        }
+    } catch (e) {
+        console.warn("Failed to load AI config", e);
+    }
+}
+
+async function saveAiConfig() {
+    const provider = document.getElementById('config-ai-provider').value;
+    const apiKey = document.getElementById('config-ai-key').value.trim();
+    const model = document.getElementById('config-ai-model').value.trim();
+    const rateLimit = document.getElementById('config-ai-rate').value.trim();
+    
+    const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
+    
+    try {
+        await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiProvider', value: provider }) });
+        if (apiKey) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiApiKey', value: apiKey }) });
+        if (model) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiModel', value: model }) });
+        if (rateLimit) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiRateLimit', value: rateLimit }) });
+        
+        notify('AI Configuration saved. Restart the container if worker is stuck.');
+        document.getElementById('config-ai-key').value = '';
+        await loadAiConfig();
+    } catch (e) {
+        console.error("Failed to save AI config", e);
+        notify('Failed to save AI configuration', 'error');
+    }
+}
+
+let lastLogLines = 0;
+async function pollWorkerLogs() {
+    const panel = document.getElementById('settings-panel');
+    if (!panel.classList.contains('open')) return;
+    
+    try {
+        const res = await fetch('/api/worker/logs');
+        if (res.ok) {
+            const data = await res.json();
+            const logBox = document.getElementById('worker-logs');
+            if (data.logs && data.logs.length > 0) {
+                if (data.logs.length !== lastLogLines) {
+                    logBox.textContent = data.logs.join('\n');
+                    logBox.scrollTop = logBox.scrollHeight;
+                    lastLogLines = data.logs.length;
+                }
+            } else {
+                logBox.textContent = "No logs yet...";
+            }
+        }
+    } catch (e) {
+        // Ignore fetch errors during polling to prevent console spam
     }
 }
 

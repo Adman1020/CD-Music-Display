@@ -143,7 +143,8 @@ async function fetchSpine(el) {
             const data = await res.json();
             if (data.spineUrl) {
                 el.style.backgroundImage = `url(${data.spineUrl})`;
-                el.classList.add('has-authentic-spine');
+                el.dataset.spineType = data.spineType;
+                el.classList.add(`spine-type-${data.spineType}`);
             }
         }
     } catch(e) {

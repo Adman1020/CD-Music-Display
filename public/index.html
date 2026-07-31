@@ -148,7 +148,45 @@
                     </div>
                 </div>
 
-                <!-- Column 3: Actions -->
+                <!-- Column 3: Spine Processing -->
+                <div class="settings-column">
+                    <div class="setting-group">
+                        <label class="section-label">Spine Extraction & AI</label>
+                        <div class="config-field" style="flex-direction: row; align-items: center; justify-content: space-between;">
+                            <label for="config-ai-toggle" style="margin-bottom: 0;">Use AI Vision</label>
+                            <input type="checkbox" id="config-ai-toggle" style="width: auto;">
+                        </div>
+                        <div id="ai-settings-container" style="display: none; margin-top: 16px;">
+                            <div class="config-field">
+                                <label for="config-ai-provider">AI Provider</label>
+                                <select id="config-ai-provider">
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="claude">Anthropic Claude</option>
+                                </select>
+                            </div>
+                            <div class="config-field">
+                                <label for="config-ai-key">API Key</label>
+                                <input type="password" id="config-ai-key" placeholder="Your API Key" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="config-field">
+                                <label for="config-ai-model">Model Name</label>
+                                <input type="text" id="config-ai-model" placeholder="e.g. gemini-1.5-pro" autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="config-field">
+                                <label for="config-ai-rate">Rate Limit (req/min)</label>
+                                <input type="number" id="config-ai-rate" placeholder="1" min="1" max="60">
+                            </div>
+                        </div>
+                        <button id="btn-save-ai" class="btn-secondary" style="margin-top: 16px;">Save AI Settings</button>
+                    </div>
+                    <div class="setting-group" style="flex: 1; display: flex; flex-direction: column;">
+                        <label>Background Worker Logs</label>
+                        <div id="worker-logs" style="flex: 1; background: rgba(0,0,0,0.5); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 11px; color: #a0a0a0; overflow-y: auto; max-height: 150px; white-space: pre-wrap; word-wrap: break-word;">Waiting for worker...</div>
+                    </div>
+                </div>
+
+                <!-- Column 4: Actions -->
                 <div class="settings-column">
                     <div class="setting-actions">
                         <button id="btn-refresh-library" class="btn-secondary">Refresh Library</button>

@@ -38,9 +38,16 @@ db.exec(`
     CREATE TABLE IF NOT EXISTS album_spines (
         spotify_id TEXT PRIMARY KEY,
         spine_url TEXT,
+        spine_type TEXT,
         last_checked DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 `);
+
+try {
+    db.exec(`ALTER TABLE album_spines ADD COLUMN spine_type TEXT;`);
+} catch (e) {
+    // Column likely already exists
+}
 
 // ---------------------------------------------------------------------------
 // Config management (Spotify credentials, session secret, base URL)
@@ -70,8 +77,8 @@ function getAllConfig() {
     rows.forEach(row => {
         // Don't expose the session secret to the frontend
         if (row.key !== 'sessionSecret') {
-            // Mask the client secret for display
-            if (row.key === 'spotifyClientSecret' && row.value) {
+            // Mask the client secret and API key for display
+            if ((row.key === 'spotifyClientSecret' || row.key === 'aiApiKey') && row.value) {
                 config[row.key] = row.value.substring(0, 4) + '••••••••' + row.value.substring(row.value.length - 4);
             } else {
                 config[row.key] = row.value;
@@ -196,11 +203,11 @@ module.exports = {
 
     // Spine cache
     getSpineCache: (spotifyId) => {
-        const row = db.prepare('SELECT spine_url FROM album_spines WHERE spotify_id = ?').get(spotifyId);
-        return row ? { spineUrl: row.spine_url } : null;
+        const row = db.prepare('SELECT spine_url, spine_type FROM album_spines WHERE spotify_id = ?').get(spotifyId);
+        return row ? { spineUrl: row.spine_url, spineType: row.spine_type } : null;
     },
-    setSpineCache: (spotifyId, spineUrl) => {
-        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, last_checked) VALUES (?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '');
+    setSpineCache: (spotifyId, spineUrl, spineType = null) => {
+        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, last_checked) VALUES (?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType);
     },
 
     // Token storage (encrypted)

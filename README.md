@@ -54,7 +54,19 @@ Because this app acts as a remote control for your Spotify account, you must cre
 - **Backend:** Express.js (Node.js) serving a REST API and managing Spotify OAuth securely.
 - **Frontend:** Vanilla JavaScript, HTML5, and CSS3. Zero heavy frameworks.
 - **Database:** SQLite (via `better-sqlite3`) to securely store your configuration, access tokens, and cached album art.
-- **APIs:** Spotify Web API + Playback SDK
+- **APIs:** Spotify Web API, Cover Art Archive, MusicBrainz, + AI Vision models (optional)
+
+## CD Spine Extraction & AI Vision
+
+Finding authentic CD spine scans for the physical UI is handled automatically in the background by the Node.js server. 
+
+By default, it uses a **Heuristics Pipeline** to sanitize album names and search the free Cover Art Archive database, intelligently cropping "Back" covers to extract spines. 
+
+If you want perfectly cropped spines for every album, you can enable **AI Vision** in the settings.
+- The server will download raw scans and send them to an AI Vision model (Gemini, OpenAI, or Claude) to find the exact bounding box of the spine, then physically crop it.
+- **Costs:** This relies entirely on your personal API key and will incur API costs from your provider. 
+- **Rate Limits:** To prevent surprise bills and API bans, you can configure a strict rate limit in the settings (defaulting to 1 request per minute). 
+- **Fallbacks:** AI models hallucinate. If the AI fails to find a spine or errors out, the server automatically falls back to the free heuristics method. You can monitor all of this in the live "Worker Logs" console in the settings menu.
 
 ## License
 

@@ -231,6 +231,16 @@ router.get('/albums/:id/spine', async (req, res) => {
     }
 });
 
+// GET /worker/logs - Returns the background worker logs
+router.get('/worker/logs', (req, res) => {
+    try {
+        const worker = require('../worker');
+        res.json({ logs: worker.getLogs() });
+    } catch (e) {
+        res.json({ logs: [] });
+    }
+});
+
 // GET /player - Returns current playback state
 router.get('/player', async (req, res) => {
     try {

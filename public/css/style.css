@@ -390,15 +390,37 @@ body {
     color: rgba(255,255,255,0.65);
 }
 
-/* When authentic spine is loaded */
-.album-spine.has-authentic-spine {
+/* Authentic Spine Rendering Logic */
+
+/* General background prep for any authentic spine */
+.album-spine[class*="spine-type-"] {
     background-size: cover;
     background-position: center;
 }
-.album-spine.has-authentic-spine .album-spine-bg {
+.album-spine[class*="spine-type-"] .album-spine-bg {
     opacity: 0;
 }
-.album-spine.has-authentic-spine .album-spine-text {
+
+/* 1. Perfect spines (AI crop or Explicit 'Spine' from CAA) */
+.album-spine.spine-type-spine,
+.album-spine.spine-type-ai_crop {
+    background-position: center;
+}
+/* Hide the HTML text overlay because the scan has the real printed text */
+.album-spine.spine-type-spine .album-spine-text,
+.album-spine.spine-type-ai_crop .album-spine-text {
+    opacity: 0;
+}
+
+/* 2. 'Back' cover fallback crop */
+.album-spine.spine-type-back {
+    /* Focus on the far right edge of the back cover, where the folded spine sits */
+    background-position: right center;
+    /* Zoom in heavily to crop just the edge */
+    background-size: 800% auto;
+}
+/* Hide the HTML text overlay, assuming the crop catches the printed text */
+.album-spine.spine-type-back .album-spine-text {
     opacity: 0;
 }
 

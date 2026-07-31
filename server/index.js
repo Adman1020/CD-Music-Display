@@ -5,6 +5,9 @@ const db = require('./db');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 
+const worker = require('./worker');
+worker.start();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
