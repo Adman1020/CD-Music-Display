@@ -21,15 +21,6 @@ function notify(msg, type) {
 }
 
 export async function initShelf() {
-    // Bind UI elements
-    document.getElementById('btn-close-detail').addEventListener('click', hideAlbumDetail);
-    document.getElementById('btn-play-album').addEventListener('click', handlePlayAlbum);
-    
-    // Close overlay when tapping outside detail-content
-    document.getElementById('album-detail-overlay').addEventListener('click', (e) => {
-        if (e.target.id === 'album-detail-overlay') hideAlbumDetail();
-    });
-    
     const container = document.getElementById('shelf-container');
     
     // Virtual Carousel Events
@@ -245,31 +236,6 @@ function renderShelf() {
 
 let currentSelectedAlbum = null;
 
-async function showAlbumDetail(album) {
-    document.getElementById('detail-cover').src = album.image || '';
-    document.getElementById('detail-title').textContent = album.name;
-    document.getElementById('detail-artist').textContent = album.artist;
-    
-    const year = album.releaseDate ? album.releaseDate.substring(0, 4) : 'Unknown Year';
-    document.getElementById('detail-meta').textContent = `${year} • ${album.totalTracks || '?'} Tracks`;
-    
-    // Clear track list — we don't fetch individual tracks from the albums endpoint
-    const trackList = document.getElementById('detail-tracks');
-    trackList.innerHTML = '<p style="color:var(--text-secondary); padding: 16px;">Tap "Play Album" to start listening.</p>';
-    
-    document.getElementById('album-detail-overlay').classList.add('active');
-}
-
-function hideAlbumDetail() {
-    document.getElementById('album-detail-overlay').classList.remove('active');
-}
-
-function handlePlayAlbum() {
-    if (currentSelectedAlbum) {
-        playAlbum(currentSelectedAlbum.uri);
-        hideAlbumDetail();
-    }
-}
 
 // Fixed-gap discrete sliding math
 function carouselLoop() {
