@@ -251,7 +251,10 @@ function renderShelf() {
             // Smoothly scroll this item to center
             const itemWidth = SPINE_WIDTH + GAP;
             const diff = parseFloat(el.dataset.relativeFloat || 0);
-            vVelocity = -diff * itemWidth * 0.15; 
+            
+            // Because our friction is v *= 0.9, the total distance traveled is v / (1 - 0.9) = 10v
+            // So to travel exactly -diff * itemWidth, we set vVelocity to that distance / 10.
+            vVelocity = -diff * itemWidth * 0.1; 
         });
         
         spineObserver.observe(el);

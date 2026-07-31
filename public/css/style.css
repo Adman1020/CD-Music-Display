@@ -618,6 +618,20 @@ body {
     transition: transform 0.2s, opacity 0.2s;
 }
 
+/* For ultra-wide shelf, device picker should pop out to the right */
+.glass-device-picker .popover-menu {
+    top: 50%;
+    right: auto;
+    left: 100%;
+    transform: translateY(-50%) scale(1);
+    transform-origin: left center;
+    margin-left: 20px;
+}
+
+.glass-device-picker .popover-menu.hidden {
+    transform: translateY(-50%) scale(0.95);
+}
+
 .popover-menu.hidden {
     opacity: 0;
     transform: scale(0.95);
@@ -692,34 +706,6 @@ body {
 }
 
 
-/* Settings Toggle */
-#settings-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    cursor: pointer;
-    z-index: 90;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.5s;
-}
-
-#settings-toggle:active {
-    background: var(--bg-elevated);
-}
-
-#settings-toggle svg {
-    width: 24px;
-    height: 24px;
-}
 
 /* Settings Panel - Fullscreen Overlay */
 #settings-panel {
