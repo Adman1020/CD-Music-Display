@@ -79,7 +79,8 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                            `3. Background & Styling: Use accurate color fills, SVG linear/radial gradients, patterns, or artwork motifs that directly echo the original album cover and release era.\n` +
                            `4. Vertical Typography: Include prominent vertical text using <text> tags with styling (font family, weight, tracking, letter-spacing, and casing) that matches the specific typography and logo vibe used on this album. Rotate the text (using transform="rotate(270, 140, 1500)" or transform="rotate(90, 140, 1500)") so it reads cleanly along the length of the spine. Clearly display the artist name and album title.\n` +
                            `5. Commercial Authenticity: At the bottom or top end of the spine (near y=180 or y=2820), include a tiny simulated record label logo symbol (simple vector marks/shapes) and a simulated catalog serial number (e.g. "CD-78219" in small font) to evoke an authentic physical commercial release.\n` +
-                           `6. Do NOT draw external plastic jewel case glare, reflections, or 3D borders (our frontend CSS acrylic glass engine automatically projects realistic polycarbonate jewel case lighting over top of your printed artwork strip).\n\n` +
+                           `6. Do NOT draw external plastic jewel case glare, reflections, or 3D borders (our frontend CSS acrylic glass engine automatically projects realistic polycarbonate jewel case lighting over top of your printed artwork strip).\n` +
+                           `7. Efficiency & Clean Vector Code: Do NOT attempt to recreate photographic artwork using dense, overly complex <path> tracing or thousands of coordinates. Use elegant, clean vector design primitives (<rect>, <circle>, <polygon>, <line>, <g>, SVG gradients, and stylized <text>) so the SVG remains compact (under 300 lines of XML), renders instantly, and never exceeds output limits.\n\n` +
                            `Return ONLY the complete valid raw SVG code starting with <svg and ending with </svg>. Do not wrap in markdown code blocks or include explanatory prose.`;
 
             let generatedText = "";
@@ -92,7 +93,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     body: JSON.stringify({
                         model: aiConfig.model || 'gpt-4o-mini',
                         messages: [{ role: "user", content: prompt }],
-                        max_tokens: 2500
+                        max_tokens: 4096
                     })
                 });
                 const data = await res.json();
@@ -105,7 +106,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { maxOutputTokens: 3500, temperature: 0.7 }
+                        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 }
                     })
                 });
                 const data = await res.json();
@@ -118,7 +119,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     headers: { 'Content-Type': 'application/json', 'x-api-key': aiConfig.key, 'anthropic-version': '2023-06-01' },
                     body: JSON.stringify({
                         model: aiConfig.model || 'claude-3-5-sonnet-20240620',
-                        max_tokens: 2500,
+                        max_tokens: 4096,
                         messages: [{ role: "user", content: prompt }]
                     })
                 });
@@ -136,7 +137,19 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                 log(`Successfully generated vector SVG spine for ${album.artist} - ${album.name}`);
                 return { coverUrl, spineUrl: `/data/${filename}`, spineType: 'ai_svg', spineWidth: 28, usedAi: true };
             } else {
-                log(`AI response did not contain valid SVG syntax. Falling back to default cover slice.`);
+                // Check if response started with <svg but got truncated before </svg>
+                const partialMatch = generatedText.match(/<svg[\s\S]+/i);
+                if (partialMatch && partialMatch[0].length > 100) {
+                    const salvagedSvg = partialMatch[0] + "\n</svg>";
+                    const filename = `spine_${album.id}.svg`;
+                    const filepath = path.join(dataDir, filename);
+                    fs.writeFileSync(filepath, salvagedSvg, 'utf-8');
+                    log(`⚠️ Salvaged truncated SVG spine for ${album.artist} - ${album.name} by appending missing </svg> tag.`);
+                    return { coverUrl, spineUrl: `/data/${filename}`, spineType: 'ai_svg', spineWidth: 28, usedAi: true };
+                }
+                
+                const preview = generatedText.length > 180 ? generatedText.substring(0, 180) + "..." : generatedText;
+                log(`AI response did not contain valid SVG syntax (Length: ${generatedText.length} chars). Preview: ${preview.replace(/\n/g, " ")}`);
             }
         } catch (err) {
             log(`Generative SVG design error for ${album.name}: ${err.message}`);
@@ -183,27 +196,27 @@ async function processNextAlbum() {
             return;
         }
         
+        const settings = db.getSettings();
+        const enableSpine = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
+        const useAi = settings.useAiVision === true || settings.useAiVision === 'true' || settings.useAiVision === 1;
+        const aiTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0;
+        
+        if (enableSpine && useAi && aiTestingMode && testBatchRemaining <= 0) {
+            workerStatus.state = "Paused (AI Testing Mode active — Turn mode OFF or click 'Process 5 Albums' to run a test batch)";
+            workerStatus.currentAlbum = null;
+            timerId = setTimeout(processNextAlbum, 4000);
+            return;
+        }
+
         workerStatus.state = "Active (Extracting Spines & Cover Art)";
         workerStatus.currentAlbum = `${targetAlbum.artist} - ${targetAlbum.name}`;
         log(`Processing: ${workerStatus.currentAlbum}`);
         
-        const settings = db.getSettings();
-        const enableSpine = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
         if (!enableSpine) {
             workerStatus.state = "Spine processing disabled (Using reliable Spotify cover slices)";
             db.setSpineCache(targetAlbum.id, null, 'none', 28, null);
             workerStatus.processedCount = db.getSpineCount();
             timerId = setTimeout(processNextAlbum, 50); // Fast-forward through unpaid/unverified albums
-            return;
-        }
-
-        const useAi = settings.useAiVision === true || settings.useAiVision === 'true' || settings.useAiVision === 1;
-        const aiTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0; // Default ON to protect token bills
-        
-        if (useAi && aiTestingMode && testBatchRemaining <= 0) {
-            workerStatus.state = "Paused (AI Testing Mode active — Turn mode OFF or click 'Process 5 Albums' to run a test batch)";
-            workerStatus.currentAlbum = null;
-            timerId = setTimeout(processNextAlbum, 4000);
             return;
         }
 
