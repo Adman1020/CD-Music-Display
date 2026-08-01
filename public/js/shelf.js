@@ -164,7 +164,7 @@ async function fetchSpine(el) {
         const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
         if (res.ok) {
             const data = await res.json();
-            const w = Math.min(95, Math.max(18, parseInt(data.spineWidth) || 28));
+            const w = Math.min(64, Math.max(26, parseInt(data.spineWidth) || 28));
             el.dataset.width = w;
             el.style.width = `${w}px`;
             
