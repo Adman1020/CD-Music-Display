@@ -419,58 +419,25 @@ body {
     color: rgba(255,255,255,0.65);
 }
 
-.album-spine.has-ai-style .album-spine-text {
-    inset: 16px 0 22px 0;
-    transition: all 0.3s ease;
-}
-
-.spine-catalog {
-    position: absolute;
-    bottom: 6px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 9px;
-    font-weight: 600;
-    font-family: monospace;
-    letter-spacing: -0.5px;
-    opacity: 0.8;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
-    z-index: 3;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-/* Authentic Spine Rendering Logic */
-
-/* General background prep for any authentic spine */
-.album-spine[class*="spine-type-"] {
-    background-size: cover;
-    background-position: center;
-}
-.album-spine[class*="spine-type-"] .album-spine-bg {
-    opacity: 0;
-}
-
-/* 1. Perfect spines (AI crop or Explicit 'Spine' from CAA) */
-.album-spine.spine-type-spine,
-.album-spine.spine-type-ai_crop {
-    background-position: center;
-}
-
-/* 2. 'Back' cover fallback crop */
-.album-spine.spine-type-back {
-    background-position: right center;
-    background-size: 800% auto;
-}
-
-/* Hide HTML text overlay for ANY authentic spine image found */
-.album-spine.has-authentic-spine .album-spine-text,
-.album-spine.spine-type-spine .album-spine-text,
-.album-spine.spine-type-ai_crop .album-spine-text,
-.album-spine.spine-type-back .album-spine-text {
-    opacity: 0 !important;
+/* Simple Non-Jewel Case Mode (Old Format) */
+body.no-jewel-cases .album-spine::after {
     display: none !important;
+}
+body.no-jewel-cases .album-spine-bg,
+body.no-jewel-cases .album-spine-text {
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+}
+body.no-jewel-cases .album-spine-text {
+    padding: 16px 0 !important;
+}
+body.no-jewel-cases .album-spine {
+    background-color: #222 !important;
+    border-radius: 0 !important;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.5) !important;
 }
 
 /* Static Center Display Box */

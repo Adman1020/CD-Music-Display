@@ -24,7 +24,7 @@ router.get('/config', (req, res) => {
 router.put('/config', (req, res) => {
     try {
         const { key, value } = req.body;
-        const allowedKeys = ['spotifyClientId', 'spotifyClientSecret', 'baseUrl', 'aiProvider', 'aiApiKey', 'aiModel', 'aiRateLimit'];
+        const allowedKeys = ['spotifyClientId', 'spotifyClientSecret', 'baseUrl'];
         
         if (!key || !allowedKeys.includes(key)) {
             return res.status(400).json({ error: `Invalid config key. Allowed: ${allowedKeys.join(', ')}` });
@@ -164,53 +164,10 @@ router.get('/albums/:id/spine', (req, res) => {
         if (cached) {
             return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null, spineWidth: cached.spineWidth || 28, coverUrl: cached.coverUrl || null, styleMeta: cached.styleMeta || null });
         }
-        // Return default values; let the background worker process the album properly with AI Vision
+        // Return default values
         res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null, styleMeta: null });
     } catch (e) {
         res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null, styleMeta: null });
-    }
-});
-
-// GET /worker/logs - Returns the background worker logs and status
-router.get('/worker/logs', (req, res) => {
-    try {
-        const worker = require('../worker');
-        res.json({ logs: worker.getLogs(), status: worker.getStatus() });
-    } catch (e) {
-        res.json({ logs: [], status: {} });
-    }
-});
-
-// POST /worker/reprocess - Triggers a fresh scan of all albums with current settings
-router.post('/worker/reprocess', (req, res) => {
-    try {
-        const worker = require('../worker');
-        worker.reprocessAll();
-        res.json({ success: true, status: worker.getStatus() });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// POST /worker/clear-spines - Clears SQLite spine cache and removes physical files from /data/
-router.post('/worker/clear-spines', (req, res) => {
-    try {
-        db.clearSpineCache();
-        res.json({ success: true, count: 0 });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// POST /worker/test-batch - Triggers processing a small test batch of albums in AI Testing Mode
-router.post('/worker/test-batch', (req, res) => {
-    try {
-        const worker = require('../worker');
-        const count = parseInt(req.body?.count, 10) || 5;
-        worker.startTestBatch(count);
-        res.json({ success: true, count, status: worker.getStatus() });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
     }
 });
 

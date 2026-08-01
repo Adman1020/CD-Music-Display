@@ -93,8 +93,8 @@ function getAllConfig() {
     rows.forEach(row => {
         // Don't expose the session secret to the frontend
         if (row.key !== 'sessionSecret') {
-            // Mask the client secret and API key for display
-            if ((row.key === 'spotifyClientSecret' || row.key === 'aiApiKey') && row.value) {
+            // Mask the client secret for display
+            if (row.key === 'spotifyClientSecret' && row.value) {
                 config[row.key] = row.value.substring(0, 4) + '••••••••' + row.value.substring(row.value.length - 4);
             } else {
                 config[row.key] = row.value;

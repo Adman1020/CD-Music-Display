@@ -54,69 +54,30 @@ Because this app acts as a remote control for your Spotify account, you must cre
 - **Backend:** Express.js (Node.js) serving a REST API and managing Spotify OAuth securely.
 - **Frontend:** Vanilla JavaScript, HTML5, and CSS3. Zero heavy frameworks.
 - **Database:** SQLite (via `better-sqlite3`) to securely store your configuration, access tokens, and cached album art.
-- **APIs:** Spotify Web API, Cover Art Archive, MusicBrainz, + AI Vision models (optional)
+- **APIs:** Spotify Web API & Web Playback SDK
 
-## Artwork Engine & AI Spine Typography System
+## Physical CD Jewel Case Framing System
 
-To recreate the visual diversity and aesthetic charm of a physical CD collection without relying on expensive image generation, crowdsourced photos, or unreliable web scraping, the backend server features an intelligent **AI Spine Typography & Style Engine**.
+To recreate the authentic aesthetic and tactile charm of a real-world physical CD rack, CD Music Display features a **Pixel-Perfect Jewel Case Engine** with zero reliance on vector distortion or blurred image stretching.
 
-### Pipeline Workflow Diagram
+### Key Features & Capabilities
 
-```mermaid
-graph TD
-    A[Worker Loop: Analyze Album] --> B[Step 1: Front Cover Art Resolution]
-    A --> C[Step 2: Spine Typography Resolution]
-    
-    %% Front Cover Workflow
-    B --> B1(Use Spotify High-Res Cover Art for optimal quality)
-    
-    %% Spine Workflow
-    C --> C0{Is Custom AI Typography Enabled?}
-    C0 -->|No: Default| C8[Reliable Static Inter Typography over 28px Cover Slice]
-    C0 -->|Yes: AI Style Engine| C1[Send Album Title, Artist & Genre Era to AI Model]
-    C1 --> C2[AI generates JSON Style Metadata: Font, Colors, Alignment & Catalog #]
-    C2 --> C3(Save JSON to SQLite Cache<br/>Apply Dynamic Google Font, Contrast Shadow Glow & Alignment<br/>Result: Custom era-authentic CD spine!)
-```
+#### 1. Authentic Acrylic Jewel Case Overlays
+* **Real Plastic Textures & Specular Glaze:** Spines are enveloped in customized, chroma-keyed transparent acrylic jewel case frame imagery extracted from real physical CD packaging.
+* **Precise Artwork Inscription:** Rather than stretching cover artwork across the plastic edges, cover artwork slices are snugly inset into the inner structural groove of the spine casing, allowing plastic ridges and reflection glares to naturally overlay the artwork edges.
+* **Classic Plain Spine Toggle:** Prefer a sleek, minimalist aesthetic? A single click on the **Display Physical CD Jewel Cases** toggle in Settings instantly reverts the display to simple, plain album spines without plastic framing or inlay margins.
 
-### Key Technical Details
+#### 2. Three Fixed Pixel-Perfect Scale Tiers
+* Rather than relying on generic CSS background scaling that causes artifacting and blurring, the rack utilizes 3 tailor-made, pixel-perfect scale presets:
+  - **Compact (300px Shelf Height / 33px Spine Width):** Perfect for smaller secondary monitoring screens or compact viewports, powered by custom `frame-300.png` overlays.
+  - **Desktop (460px Shelf Height / 50px Spine Width):** Our standard, balanced workstation preset providing vivid cover detail and clean typography across typical displays (`frame-460.png`).
+  - **Life-Size CD (700px Shelf Height / 76px Spine Width):** Immersive, museum-grade display scale that renders physical CDs at authentic 1:1 life-size dimensions on large monitors and living room TVs (`frame-700.png`).
 
-#### 1. Intelligent AI Spine Typography Engine (Pure Text JSON)
-* **Why avoid image diffusion or complex vector drawing?** Diffusion models (DALL-E 3, Imagen 3) are prohibitively expensive ($0.04 to $0.08 per image) and struggle with vertical typography on thin spines. Even generating full vector SVG files can consume excess tokens and result in rigid layouts.
-* **The Solution:** Our engine prompts lightweight AI LLMs (Gemini, GPT, Claude) to function as elite graphic designers and music art historians. The AI analyzes the musical genre and release era to return compact **JSON style metadata** (~150 tokens) selecting:
-  - **31 Curated Google Fonts & Randomized Shuffling:** From grunge/metal (`Creepster`, `Nosifer`, `Bungee Inline`) and synthwave (`Audiowide`, `Orbitron`) to jazz/classical (`Bodoni Moda`, `Playfair Display`) and bold pop (`Anton`, `Bebas Neue`, `Outfit`). The engine dynamically shuffles category order in every prompt and applies high creativity temperatures (`0.9`) to completely eliminate AI position bias and guarantee exciting variation across your collection!
-  - **Dynamic Text Fitting & Overflow Protection:** The frontend monitor measures total artist and title character counts, automatically scaling font size down (from 12.5px down to 9.5px) and adjusting letter spacing so long titles fit snugly on narrow CD spines without ever falling off the ends.
-  - **Optimal Vertical Text Positioning:** Dynamically aligns vertical text at the bottom (`start`), center (`center`), or top (`end`) of the spine to avoid artwork clutter and mirror real-world retail CD rack variation.
-  - **Record Labels & Catalog Numbers:** Adds simulated or authentic catalog identification codes (e.g. `4AD-0012`, `CD-78219`) along the bottom edge of the case.
-
-#### 2. Intelligent Readability & Contrast Protection
-* Text overlays appear directly above a 28px vertical slice of the Spotify album cover artwork.
-* The frontend automatically calculates the RGB relative luminance of the AI-selected text color:
-  - **Bright Font Colors:** Automatically receive a deep, multi-layered jet-black shadow glow to stand out against white or vibrant background artwork.
-  - **Dark Font Colors:** Receive a crisp white contrast halo glow to maintain razor-sharp legibility over dark cover slices.
-
-#### 3. 4-Column Balanced & Scrollable Settings Modal
-* **Ultra-Wide Optimization:** Distributes configuration menus, account controls, AI provider credentials, test batch buttons, and live diagnostic terminal logs across 4 perfectly proportioned side-by-side columns.
-* **Vertical Scroll Protection:** Equipped with fluid overflow scrolling so menus and log panels remain fully accessible on any monitor resolution without items falling off the bottom of the screen.
-
-#### 4. Zero-Risk AI Testing Mode, Unlocked Rate Limits & Static Fallback
-* **AI Testing Mode:** Protects your API token budget by pausing continuous processing until you click **Process 5 Albums (Test Batch)** in Settings. Inspect your results before processing your entire library!
-* **Unlocked Rate Limiting:** Processes your catalog strictly according to your configured API Rate Limit (requests/min), stripping out forced legacy delays so albums style as fast as your provider allows.
-* **Static Fallback:** Whenever AI mode is turned off (or before an album is processed), the system automatically reverts to our bulletproof default: crisp, clean static `Inter` font text rendered instantly (50ms per album) over the standard jewel-case artwork slice.
+#### 3. Streamlined 2-Column Responsive Settings Panel
+* **Clean Layout:** Settings are cleanly divided into two spacious, balanced columns (Appearance & Behavior vs. Spotify Account Configuration) with fluid overflow scrolling, ensuring zero UI clutter or clipped elements on any screen resolution.
+* **Instant Application & Persistence:** Toggling jewel cases or switching shelf scales updates the virtual carousel dynamically in real time without refreshing the page, saving your exact configuration directly to local storage and SQLite database settings.
 
 ---
-
-## Ultra-Low Cost AI Model Recommendations
-
-Because the AI Typography Engine generates compact JSON style definitions rather than imagery or heavy coordinates, it operates at lightning speed and costs virtually nothing (less than **$0.001 total** per 100 albums processed!):
-
-1. **Google Gemini**
-   - **`gemini-2.5-flash`** *(Recommended Workhorse)*: Exceptional graphic design reasoning, precise JSON formatting, and lightning speed with generous free-tier allowances on Google AI Studio.
-   - **`gemini-3.0-flash-lite`**: Ultra-lightweight and extremely fast for processing massive record collections with negligible token costs.
-2. **OpenAI**
-   - **`gpt-4o-mini`** *(Recommended)*: Incredible typography matching and genre understanding at under $0.0001 per album.
-3. **Anthropic Claude**
-   - **`claude-3-5-haiku-20241022`** *(Recommended)*: Superb high-speed creative typography styling (&lt;$0.0002 per album).
-   - **`claude-3-5-sonnet-20240620`**: Unrivaled artistic taste and aesthetic variation for true connoisseurs.
 
 ## License
 

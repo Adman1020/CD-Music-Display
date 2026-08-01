@@ -2,7 +2,6 @@ import { playAlbum } from './player.js';
 
 let allAlbums = [];
 let sortOrder = 'added';
-let spineObserver = null;
 
 // Virtual Carousel State
 let vScrollX = 0;
@@ -22,9 +21,9 @@ let currentScale = 460;
 let scaleMultiplier = 1.0;
 
 const SPINE_SCALE_CONFIG = {
-    "300": { height: 300, width: 33, left: 5, top: 9, inlayW: 23, inlayH: 282, gap: 4, frame: "/images/spines/frame-300.png" },
-    "460": { height: 460, width: 50, left: 8, top: 14, inlayW: 35, inlayH: 432, gap: 6, frame: "/images/spines/frame-460.png" },
-    "700": { height: 700, width: 76, left: 12, top: 21, inlayW: 52, inlayH: 658, gap: 8, frame: "/images/spines/frame-700.png" }
+    "300": { height: 300, width: 33, oldWidth: 28, left: 5, top: 9, inlayW: 23, inlayH: 282, gap: 4, frame: "/images/spines/frame-300.png" },
+    "460": { height: 460, width: 50, oldWidth: 43, left: 8, top: 14, inlayW: 35, inlayH: 432, gap: 6, frame: "/images/spines/frame-460.png" },
+    "700": { height: 700, width: 76, oldWidth: 65, left: 12, top: 21, inlayW: 52, inlayH: 658, gap: 8, frame: "/images/spines/frame-700.png" }
 };
 
 function applyScaleConfig(val) {
@@ -34,15 +33,23 @@ function applyScaleConfig(val) {
     else numVal = 460;
     
     const cfg = SPINE_SCALE_CONFIG[String(numVal)] || SPINE_SCALE_CONFIG["460"];
+    const showCases = localStorage.getItem('showJewelCases') !== 'false';
+    
     currentScale = cfg.height;
     scaleMultiplier = cfg.height / 460;
-    SPINE_WIDTH = cfg.width;
+    SPINE_WIDTH = showCases ? cfg.width : cfg.oldWidth;
     CENTER_WIDTH = cfg.height;
     GAP = cfg.gap;
     
+    if (showCases) {
+        document.body.classList.remove('no-jewel-cases');
+    } else {
+        document.body.classList.add('no-jewel-cases');
+    }
+    
     const root = document.documentElement;
     root.style.setProperty('--shelf-height', `${cfg.height}px`);
-    root.style.setProperty('--spine-width', `${cfg.width}px`);
+    root.style.setProperty('--spine-width', `${SPINE_WIDTH}px`);
     root.style.setProperty('--inlay-left', `${cfg.left}px`);
     root.style.setProperty('--inlay-top', `${cfg.top}px`);
     root.style.setProperty('--inlay-width', `${cfg.inlayW}px`);
@@ -189,139 +196,12 @@ function sortAlbums(albums) {
     });
 }
 
-function initSpineObserver() {
-    if (!spineObserver) {
-        spineObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const el = entry.target;
-                    if (el.dataset.spineLoaded !== 'true') {
-                        el.dataset.spineLoaded = 'true';
-                        fetchSpine(el);
-                    }
-                }
-            });
-        }, { root: document.getElementById('shelf-container'), rootMargin: '200px' });
-    }
-}
-
-async function fetchSpine(el) {
-    const id = el.dataset.id;
-    const name = el.dataset.name;
-    const artist = el.dataset.artist;
-    
-    try {
-        const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
-        if (res.ok) {
-            const data = await res.json();
-            const w = SPINE_WIDTH;
-            el.dataset.width = w;
-            el.style.width = `${w}px`;
-            
-            const idx = parseInt(el.dataset.index);
-            if (!isNaN(idx) && allAlbums.length > 0) {
-                const realAlbum = allAlbums[idx % allAlbums.length];
-                if (realAlbum) {
-                    realAlbum.width = w;
-                    if (data.coverUrl) realAlbum.coverUrl = data.coverUrl;
-                }
-            }
-            
-            if (data.spineUrl && data.spineUrl !== '') {
-                el.style.backgroundImage = `url(${data.spineUrl})`;
-                const st = data.spineType || 'spine';
-                el.dataset.spineType = st;
-                el.classList.add(`spine-type-${st}`);
-                el.classList.add('has-authentic-spine');
-            }
-            
-            if (data.styleMeta) {
-                const meta = data.styleMeta;
-                const textEl = el.querySelector('.album-spine-text');
-                if (textEl) {
-                    if (meta.fontFamily) textEl.style.fontFamily = `"${meta.fontFamily}", Inter, sans-serif`;
-                    if (meta.fontWeight) textEl.style.fontWeight = meta.fontWeight;
-                    if (meta.textTransform && meta.textTransform !== 'none') textEl.style.textTransform = meta.textTransform;
-                    
-                    // Intelligent font scaling to prevent long titles or wide fonts from falling off the ends
-                    const totalChars = (artist || '').length + (name || '').length;
-                    if (totalChars > 36) {
-                        textEl.style.fontSize = '9.5px';
-                        textEl.style.letterSpacing = '-0.5px';
-                    } else if (totalChars > 26) {
-                        textEl.style.fontSize = '11px';
-                        textEl.style.letterSpacing = 'normal';
-                    } else if (totalChars > 18) {
-                        textEl.style.fontSize = '12px';
-                        if (meta.letterSpacing === '2px' || meta.letterSpacing === '3px') {
-                            textEl.style.letterSpacing = '0.5px';
-                        } else if (meta.letterSpacing && meta.letterSpacing !== 'normal') {
-                            textEl.style.letterSpacing = meta.letterSpacing;
-                        }
-                    } else if (meta.letterSpacing && meta.letterSpacing !== 'normal') {
-                        textEl.style.letterSpacing = meta.letterSpacing;
-                    }
-                    if (meta.textColor) {
-                        textEl.style.color = meta.textColor;
-                        // Intelligent contrast protection: calculate luminance of text color to apply high-contrast shadow glow over artwork slices
-                        const hex = meta.textColor.replace('#', '');
-                        if (hex.length === 6 || hex.length === 3) {
-                            const fullHex = hex.length === 3 ? hex.split('').map(x => x + x).join('') : hex;
-                            const r = parseInt(fullHex.substring(0, 2), 16) || 0;
-                            const g = parseInt(fullHex.substring(2, 4), 16) || 0;
-                            const b = parseInt(fullHex.substring(4, 6), 16) || 0;
-                            const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-                            if (luminance > 140) {
-                                // Bright text -> deep black contrast shadow glow
-                                textEl.style.textShadow = '0 0 4px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.8)';
-                            } else {
-                                // Dark text -> crisp white contrast shadow glow
-                                textEl.style.textShadow = '0 0 4px rgba(255,255,255,0.95), 0 1px 3px rgba(255,255,255,0.95), 0 0 10px rgba(255,255,255,0.85)';
-                            }
-                        }
-                    }
-                    
-                    if (meta.verticalAlignment) {
-                        if (meta.verticalAlignment === 'center') textEl.style.justifyContent = 'center';
-                        else if (meta.verticalAlignment === 'end') textEl.style.justifyContent = 'flex-end';
-                        else textEl.style.justifyContent = 'flex-start';
-                    }
-                    
-                    const artistEl = textEl.querySelector('.spine-artist');
-                    if (artistEl && meta.artistColor) artistEl.style.color = meta.artistColor;
-                    const dividerEl = textEl.querySelector('.spine-divider');
-                    if (dividerEl && meta.textColor) dividerEl.style.color = meta.textColor;
-                }
-                
-                if (meta.catalogNumber && !el.querySelector('.spine-catalog')) {
-                    const catDiv = document.createElement('div');
-                    catDiv.className = 'spine-catalog';
-                    catDiv.textContent = meta.catalogNumber;
-                    if (meta.textColor) {
-                        catDiv.style.color = meta.textColor;
-                        catDiv.style.textShadow = textEl ? textEl.style.textShadow : '1px 1px 2px rgba(0,0,0,0.9)';
-                    }
-                    el.appendChild(catDiv);
-                }
-                el.classList.add('has-ai-style');
-            }
-        }
-    } catch(e) {
-        console.error("Failed to load spine", e);
-    }
-}
-
 function renderShelf() {
     const container = document.getElementById('shelf-container');
     container.innerHTML = '';
     
     allAlbums = sortAlbums(allAlbums);
     const sorted = allAlbums;
-    
-    if (spineObserver) {
-        spineObserver.disconnect();
-    }
-    initSpineObserver();
     
     // Inject the static center box
     const centerBox = document.createElement('div');
@@ -475,7 +355,6 @@ function renderShelf() {
             vVelocity = -diff * (SPINE_WIDTH + GAP) * 0.1; 
         });
         
-        spineObserver.observe(el);
         container.appendChild(el);
     });
 }

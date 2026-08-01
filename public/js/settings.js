@@ -18,20 +18,6 @@ export async function initSettings() {
         loadAlbums(true);
         panel.classList.remove('open');
     });
-    const clearSpinesBtn = document.getElementById('btn-clear-spines');
-    if (clearSpinesBtn) {
-        clearSpinesBtn.addEventListener('click', async () => {
-            const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
-            try {
-                await fetch('/api/worker/reprocess', { method: 'POST' });
-                notify('Spine image cache flushed! AI is re-checking all albums.');
-                loadAlbums(true);
-                panel.classList.remove('open');
-            } catch (e) {
-                notify('Failed to clear spine cache', 'error');
-            }
-        });
-    }
 
     // Segmented controls
     
@@ -64,110 +50,26 @@ export async function initSettings() {
         });
     }
 
+    const casesToggle = document.getElementById('setting-show-jewel-cases');
+    if (casesToggle) {
+        casesToggle.addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            localStorage.setItem('showJewelCases', checked ? 'true' : 'false');
+            saveSetting('showJewelCases', checked ? 'true' : 'false');
+            const savedScale = localStorage.getItem('shelfScale') || '460';
+            updateShelfScaleUI(savedScale);
+        });
+    }
 
     // Spotify config save button
     document.getElementById('btn-save-config').addEventListener('click', saveSpotifyConfig);
-    
-    // Spine processing & AI config toggle & save buttons
-    const spineToggle = document.getElementById('config-spine-processing-toggle');
-    const spineOptions = document.getElementById('spine-processing-options');
-    spineToggle.addEventListener('change', async (e) => {
-        const enabled = e.target.checked;
-        spineOptions.style.display = enabled ? 'block' : 'none';
-        await saveSetting('enableSpineProcessing', enabled ? 'true' : 'false');
-        if (!enabled) {
-            // Automatically clear spine cache & trigger reprocess to revert all albums to clean Spotify slices
-            await fetch('/api/worker/clear-spines', { method: 'POST' });
-            await fetch('/api/worker/reprocess', { method: 'POST' });
-            import('./app.js').then(m => m.showNotification('Spine processing disabled — resetting library to Spotify cover slices', 'info'));
-        } else {
-            await fetch('/api/worker/reprocess', { method: 'POST' });
-            import('./app.js').then(m => m.showNotification('Spine processing enabled — restarting background scan', 'info'));
-        }
-    });
 
-    const aiToggle = document.getElementById('config-ai-toggle');
-    const aiContainer = document.getElementById('ai-settings-container');
-    const diagBtn = document.getElementById('btn-open-worker-diagnostics');
-    aiToggle.addEventListener('change', (e) => {
-        aiContainer.style.display = e.target.checked ? 'block' : 'none';
-        if (diagBtn) diagBtn.style.display = e.target.checked ? 'block' : 'none';
-        saveSetting('useAiVision', e.target.checked ? 'true' : 'false');
-    });
-    
-    const testingToggle = document.getElementById('config-ai-testing-toggle');
-    const testBatchContainer = document.getElementById('ai-test-batch-container');
-    if (testingToggle) {
-        testingToggle.addEventListener('change', (e) => {
-            const isTesting = e.target.checked;
-            if (testBatchContainer) testBatchContainer.style.display = isTesting ? 'block' : 'none';
-            saveSetting('aiTestingMode', isTesting ? 'true' : 'false');
-        });
-    }
-    
-    const testBatchBtn = document.getElementById('btn-process-test-batch');
-    if (testBatchBtn) {
-        testBatchBtn.addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/worker/test-batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ count: 5 })
-                });
-                if (res.ok) {
-                    import('./app.js').then(m => m.showNotification('Started AI Test Batch for 5 albums!', 'info'));
-                    pollWorkerLogs(true);
-                } else {
-                    import('./app.js').then(m => m.showNotification('Failed to start test batch', 'error'));
-                }
-            } catch (err) {
-                console.error("Test batch request failed:", err);
-            }
-        });
-    }
-    
-    document.getElementById('btn-save-ai').addEventListener('click', saveAiConfig);
-    
-    // AI Worker Diagnostics modal handlers
-    const workerModal = document.getElementById('ai-worker-modal');
-    if (diagBtn && workerModal) {
-        diagBtn.addEventListener('click', () => {
-            workerModal.classList.remove('hidden');
-            workerModal.style.display = 'flex';
-            pollWorkerLogs(true);
-        });
-        const closeWorkerModal = () => {
-            workerModal.classList.add('hidden');
-            workerModal.style.display = 'none';
-        };
-        document.getElementById('btn-close-worker-modal').addEventListener('click', closeWorkerModal);
-        document.getElementById('btn-done-worker').addEventListener('click', closeWorkerModal);
-    }
-    
-    const reprocessBtn = document.getElementById('btn-reprocess-spines');
-    if (reprocessBtn) {
-        reprocessBtn.addEventListener('click', async () => {
-            const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
-            try {
-                await fetch('/api/worker/reprocess', { method: 'POST' });
-                notify('Library spine reprocessing triggered with current AI settings!');
-                pollWorkerLogs(true);
-            } catch(e) {
-                notify('Failed to trigger reprocessing', 'error');
-            }
-        });
-    }
-    
     // Load existing settings & config
     await loadSettings();
     await loadSpotifyConfig();
-    await loadAiConfig();
     await fetchDevices();
     
     window.addEventListener('spotify-device-ready', () => fetchDevices());
-    
-    // Start polling logs if panel is open
-    setInterval(pollWorkerLogs, 2000);
 }
 
 function setupSegmentedControl(id, callback) {
@@ -206,32 +108,12 @@ async function loadSettings() {
             else if (scaleVal >= 580) scaleVal = 700;
             else scaleVal = 460;
             document.getElementById('setting-shelf-scale').value = String(scaleVal);
+            const showCases = settings.showJewelCases !== 'false' && localStorage.getItem('showJewelCases') !== 'false';
+            const casesToggle = document.getElementById('setting-show-jewel-cases');
+            if (casesToggle) casesToggle.checked = showCases;
+            localStorage.setItem('showJewelCases', showCases ? 'true' : 'false');
+
             updateShelfScaleUI(scaleVal);
-            // Spine processing toggle defaults to OFF unless explicitly set to true
-            const isSpineEnabled = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
-            document.getElementById('config-spine-processing-toggle').checked = isSpineEnabled;
-            document.getElementById('spine-processing-options').style.display = isSpineEnabled ? 'block' : 'none';
-
-            if (settings.useAiVision === 'true' || settings.useAiVision === true || settings.useAiVision === 1) {
-                document.getElementById('config-ai-toggle').checked = true;
-                document.getElementById('ai-settings-container').style.display = 'block';
-                const diagBtn = document.getElementById('btn-open-worker-diagnostics');
-                if (diagBtn) diagBtn.style.display = 'block';
-            } else {
-                document.getElementById('config-ai-toggle').checked = false;
-                document.getElementById('ai-settings-container').style.display = 'none';
-                const diagBtn = document.getElementById('btn-open-worker-diagnostics');
-                if (diagBtn) diagBtn.style.display = 'none';
-            }
-            
-            const isTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0;
-            const testingToggle = document.getElementById('config-ai-testing-toggle');
-            if (testingToggle) {
-                testingToggle.checked = isTestingMode;
-                const testBatchContainer = document.getElementById('ai-test-batch-container');
-                if (testBatchContainer) testBatchContainer.style.display = isTestingMode ? 'block' : 'none';
-            }
-
         }
     } catch (e) {
         console.warn("Failed to load settings from server, using defaults", e);
@@ -303,113 +185,6 @@ async function saveSpotifyConfig() {
     }
 }
 
-async function loadAiConfig() {
-    try {
-        const res = await fetch('/api/config');
-        if (res.ok) {
-            const config = await res.json();
-            if (config.aiProvider) document.getElementById('config-ai-provider').value = config.aiProvider;
-            if (config.aiApiKey) document.getElementById('config-ai-key').placeholder = config.aiApiKey;
-            if (config.aiModel) document.getElementById('config-ai-model').value = config.aiModel;
-            if (config.aiRateLimit) document.getElementById('config-ai-rate').value = config.aiRateLimit;
-        }
-    } catch (e) {
-        console.warn("Failed to load AI config", e);
-    }
-}
-
-async function saveAiConfig() {
-    const provider = document.getElementById('config-ai-provider').value;
-    const apiKey = document.getElementById('config-ai-key').value.trim();
-    const model = document.getElementById('config-ai-model').value.trim();
-    const rateLimit = document.getElementById('config-ai-rate').value.trim();
-    
-    const notify = (msg, type) => import('./app.js').then(m => m.showNotification(msg, type));
-    
-    try {
-        await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiProvider', value: provider }) });
-        if (apiKey) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiApiKey', value: apiKey }) });
-        if (model) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiModel', value: model }) });
-        if (rateLimit) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiRateLimit', value: rateLimit }) });
-        
-        const isSpineEnabled = document.getElementById('config-spine-processing-toggle').checked ? 'true' : 'false';
-        const isAiEnabled = document.getElementById('config-ai-toggle').checked ? 'true' : 'false';
-        const isTestingMode = document.getElementById('config-ai-testing-toggle')?.checked ? 'true' : 'false';
-        await saveSetting('enableSpineProcessing', isSpineEnabled);
-        await saveSetting('useAiVision', isAiEnabled);
-        await saveSetting('aiTestingMode', isTestingMode);
-        
-        // Trigger worker restart/reprocess automatically
-        await fetch('/api/worker/reprocess', { method: 'POST' });
-        
-        notify('AI Configuration saved and Worker restarted!');
-        document.getElementById('config-ai-key').value = '';
-        await loadAiConfig();
-        pollWorkerLogs(true);
-    } catch (e) {
-        console.error("Failed to save AI config", e);
-        notify('Failed to save AI configuration', 'error');
-    }
-}
-
-let lastLogLines = 0;
-let lastDiagLogLines = 0;
-async function pollWorkerLogs(force = false) {
-    const panel = document.getElementById('settings-panel');
-    const modal = document.getElementById('ai-worker-modal');
-    const isPanelOpen = panel && panel.classList.contains('open');
-    const isModalOpen = modal && !modal.classList.contains('hidden');
-    
-    if (!isPanelOpen && !isModalOpen && !force) return;
-    
-    try {
-        const res = await fetch('/api/worker/logs');
-        if (res.ok) {
-            const data = await res.json();
-            
-            // Update small settings box
-            if (isPanelOpen) {
-                const logBox = document.getElementById('worker-logs');
-                if (logBox && data.logs && data.logs.length > 0) {
-                    if (data.logs.length !== lastLogLines || force) {
-                        logBox.textContent = data.logs.join('\n');
-                        logBox.scrollTop = logBox.scrollHeight;
-                        lastLogLines = data.logs.length;
-                    }
-                } else if (logBox) {
-                    logBox.textContent = "No logs yet...";
-                }
-            }
-            
-            // Update Diagnostics modal
-            if (isModalOpen || force) {
-                const diagState = document.getElementById('diag-worker-state');
-                const diagProgress = document.getElementById('diag-worker-progress');
-                const diagAction = document.getElementById('diag-worker-action');
-                const diagConsole = document.getElementById('diag-console');
-                
-                if (data.status) {
-                    if (diagState) diagState.textContent = data.status.state || "Active";
-                    if (diagProgress) diagProgress.textContent = `${data.status.processedCount || 0} / ${data.status.totalAlbums || 0} Albums`;
-                    if (diagAction) diagAction.textContent = data.status.lastAction || "Idle";
-                }
-                
-                if (diagConsole && data.logs && data.logs.length > 0) {
-                    if (data.logs.length !== lastDiagLogLines || force) {
-                        diagConsole.textContent = data.logs.join('\n');
-                        diagConsole.scrollTop = diagConsole.scrollHeight;
-                        lastDiagLogLines = data.logs.length;
-                    }
-                } else if (diagConsole) {
-                    diagConsole.textContent = "No worker logs recorded yet...";
-                }
-            }
-        }
-    } catch (e) {
-        // Ignore fetch errors during polling to prevent console spam
-    }
-}
-
 async function saveSetting(key, value) {
     try {
         await fetch('/api/settings', {
@@ -423,9 +198,9 @@ async function saveSetting(key, value) {
 }
 
 const SPINE_SCALE_CONFIG = {
-    "300": { height: 300, width: 33, left: 5, top: 9, inlayW: 23, inlayH: 282, frame: "/images/spines/frame-300.png" },
-    "460": { height: 460, width: 50, left: 8, top: 14, inlayW: 35, inlayH: 432, frame: "/images/spines/frame-460.png" },
-    "700": { height: 700, width: 76, left: 12, top: 21, inlayW: 52, inlayH: 658, frame: "/images/spines/frame-700.png" }
+    "300": { height: 300, width: 33, oldWidth: 28, left: 5, top: 9, inlayW: 23, inlayH: 282, frame: "/images/spines/frame-300.png" },
+    "460": { height: 460, width: 50, oldWidth: 43, left: 8, top: 14, inlayW: 35, inlayH: 432, frame: "/images/spines/frame-460.png" },
+    "700": { height: 700, width: 76, oldWidth: 65, left: 12, top: 21, inlayW: 52, inlayH: 658, frame: "/images/spines/frame-700.png" }
 };
 
 function updateShelfScaleUI(val) {
@@ -436,6 +211,8 @@ function updateShelfScaleUI(val) {
     
     const scaleKey = String(numVal);
     const cfg = SPINE_SCALE_CONFIG[scaleKey] || SPINE_SCALE_CONFIG["460"];
+    const showCases = localStorage.getItem('showJewelCases') !== 'false';
+    const activeWidth = showCases ? cfg.width : cfg.oldWidth;
     
     localStorage.setItem('shelfScale', scaleKey);
     
@@ -444,14 +221,14 @@ function updateShelfScaleUI(val) {
     
     const root = document.documentElement;
     root.style.setProperty('--shelf-height', `${cfg.height}px`);
-    root.style.setProperty('--spine-width', `${cfg.width}px`);
+    root.style.setProperty('--spine-width', `${activeWidth}px`);
     root.style.setProperty('--inlay-left', `${cfg.left}px`);
     root.style.setProperty('--inlay-top', `${cfg.top}px`);
     root.style.setProperty('--inlay-width', `${cfg.inlayW}px`);
     root.style.setProperty('--inlay-height', `${cfg.inlayH}px`);
     root.style.setProperty('--spine-frame-url', `url("${cfg.frame}")`);
     
-    window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: cfg.height, width: cfg.width, config: cfg } }));
+    window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: cfg.height, width: activeWidth, config: cfg } }));
 }
 
 async function fetchDevices() {
