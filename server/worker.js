@@ -4,6 +4,7 @@ const path = require('path');
 
 let isRunning = false;
 let timerId = null;
+let testBatchRemaining = 0;
 const logs = [];
 const MAX_LOGS = 250;
 
@@ -196,8 +197,17 @@ async function processNextAlbum() {
             return;
         }
 
-        const useAi = settings.useAiVision === true || settings.useAiVision === 'true';
-        workerStatus.state = `Resolving artwork (${useAi ? 'Heuristics + AI Vision' : 'Heuristics only'})`;
+        const useAi = settings.useAiVision === true || settings.useAiVision === 'true' || settings.useAiVision === 1;
+        const aiTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0; // Default ON to protect token bills
+        
+        if (useAi && aiTestingMode && testBatchRemaining <= 0) {
+            workerStatus.state = "Paused (AI Testing Mode active — Turn mode OFF or click 'Process 5 Albums' to run a test batch)";
+            workerStatus.currentAlbum = null;
+            timerId = setTimeout(processNextAlbum, 4000);
+            return;
+        }
+
+        workerStatus.state = `Resolving artwork (${useAi ? 'Generative Vector AI' : 'Standard'})`;
         
         const result = await resolveAlbumArtwork(targetAlbum, useAi, {
             provider: db.getConfig('aiProvider'),
@@ -205,12 +215,20 @@ async function processNextAlbum() {
             model: db.getConfig('aiModel')
         });
         
+        if (result.usedAi && testBatchRemaining > 0) {
+            testBatchRemaining--;
+            log(`Test batch progress: ${testBatchRemaining} album(s) left in current test batch.`);
+            if (testBatchRemaining <= 0) {
+                log(`🧪 AI Test Batch complete! Worker paused to protect token budget while you inspect results.`);
+            }
+        }
+
         // Save result to SQLite cache
         db.setSpineCache(targetAlbum.id, result.spineUrl, result.spineType, result.spineWidth, result.coverUrl);
         workerStatus.processedCount = db.getSpineCount();
         
         // Determine courteous rate limit delay
-        let delayMs = 3000; // Default safe rate limit for Cover Art Archive & MusicBrainz
+        let delayMs = 3000;
         const aiRateLimit = db.getConfig('aiRateLimit');
         if (result.usedAi && aiRateLimit) {
             const reqPerMin = parseInt(aiRateLimit, 10) || 1;
@@ -255,10 +273,20 @@ function reprocessAll() {
     }
 }
 
+function startTestBatch(count = 5) {
+    log(`User initiated AI Test Batch processing of ${count} albums.`);
+    testBatchRemaining = count;
+    workerStatus.state = `Starting AI Test Batch (${count} albums)...`;
+    if (timerId) { clearTimeout(timerId); timerId = null; }
+    if (!isRunning) start();
+    else processNextAlbum();
+}
+
 module.exports = {
     start,
     stop,
     getLogs,
     getStatus,
-    reprocessAll
+    reprocessAll,
+    startTestBatch
 };

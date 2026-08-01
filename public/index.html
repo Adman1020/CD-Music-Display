@@ -204,6 +204,18 @@
                                     <label for="config-ai-rate">Rate Limit (req/min)</label>
                                     <input type="number" id="config-ai-rate" placeholder="1" min="1" max="60">
                                 </div>
+                                <div class="config-field" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
+                                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                                        <div style="flex: 1;">
+                                            <label for="config-ai-testing-toggle" style="margin-bottom: 4px; color: #fff; cursor: pointer;">AI Testing Mode (Safe Batching)</label>
+                                            <div style="font-size: 11px; color: #00bcd4; line-height: 1.35; font-weight: 500;">🛡️ <b>Protect Token Budget:</b> Prevents automatic continuous processing from running up a bill. When enabled, AI pauses until you trigger a small test batch. Once happy with the results, turn Testing Mode OFF to process your remaining catalog!</div>
+                                        </div>
+                                        <input type="checkbox" id="config-ai-testing-toggle" checked style="width: auto; margin-top: 4px; cursor: pointer;">
+                                    </div>
+                                    <div id="ai-test-batch-container" style="margin-top: 12px; width: 100%;">
+                                        <button type="button" id="btn-process-test-batch" class="btn-secondary" style="width: 100%; border-color: #00bcd4; color: #00bcd4; font-weight: 600; padding: 8px;">🧪 Process 5 Albums (Test Batch)</button>
+                                    </div>
+                                </div>
                             </div>
                             <button id="btn-save-ai" class="btn-secondary" style="margin-top: 16px;">Save Spine & AI Settings</button>
                             <button id="btn-open-worker-diagnostics" class="btn-secondary" style="margin-top: 10px; width: 100%; display: none;">View AI Worker Logs & Status</button>

@@ -96,6 +96,38 @@ export async function initSettings() {
         if (diagBtn) diagBtn.style.display = e.target.checked ? 'block' : 'none';
         saveSetting('useAiVision', e.target.checked ? 'true' : 'false');
     });
+    
+    const testingToggle = document.getElementById('config-ai-testing-toggle');
+    const testBatchContainer = document.getElementById('ai-test-batch-container');
+    if (testingToggle) {
+        testingToggle.addEventListener('change', (e) => {
+            const isTesting = e.target.checked;
+            if (testBatchContainer) testBatchContainer.style.display = isTesting ? 'block' : 'none';
+            saveSetting('aiTestingMode', isTesting ? 'true' : 'false');
+        });
+    }
+    
+    const testBatchBtn = document.getElementById('btn-process-test-batch');
+    if (testBatchBtn) {
+        testBatchBtn.addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/worker/test-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ count: 5 })
+                });
+                if (res.ok) {
+                    import('./app.js').then(m => m.showNotification('Started AI Test Batch for 5 albums!', 'info'));
+                    pollWorkerLogs(true);
+                } else {
+                    import('./app.js').then(m => m.showNotification('Failed to start test batch', 'error'));
+                }
+            } catch (err) {
+                console.error("Test batch request failed:", err);
+            }
+        });
+    }
+    
     document.getElementById('btn-save-ai').addEventListener('click', saveAiConfig);
     
     // AI Worker Diagnostics modal handlers
@@ -192,6 +224,14 @@ async function loadSettings() {
                 document.getElementById('ai-settings-container').style.display = 'none';
                 const diagBtn = document.getElementById('btn-open-worker-diagnostics');
                 if (diagBtn) diagBtn.style.display = 'none';
+            }
+            
+            const isTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0;
+            const testingToggle = document.getElementById('config-ai-testing-toggle');
+            if (testingToggle) {
+                testingToggle.checked = isTestingMode;
+                const testBatchContainer = document.getElementById('ai-test-batch-container');
+                if (testBatchContainer) testBatchContainer.style.display = isTestingMode ? 'block' : 'none';
             }
 
         }
@@ -296,8 +336,10 @@ async function saveAiConfig() {
         
         const isSpineEnabled = document.getElementById('config-spine-processing-toggle').checked ? 'true' : 'false';
         const isAiEnabled = document.getElementById('config-ai-toggle').checked ? 'true' : 'false';
+        const isTestingMode = document.getElementById('config-ai-testing-toggle')?.checked ? 'true' : 'false';
         await saveSetting('enableSpineProcessing', isSpineEnabled);
         await saveSetting('useAiVision', isAiEnabled);
+        await saveSetting('aiTestingMode', isTestingMode);
         
         // Trigger worker restart/reprocess automatically
         await fetch('/api/worker/reprocess', { method: 'POST' });

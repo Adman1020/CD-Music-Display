@@ -202,6 +202,18 @@ router.post('/worker/clear-spines', (req, res) => {
     }
 });
 
+// POST /worker/test-batch - Triggers processing a small test batch of albums in AI Testing Mode
+router.post('/worker/test-batch', (req, res) => {
+    try {
+        const worker = require('../worker');
+        const count = parseInt(req.body?.count, 10) || 5;
+        worker.startTestBatch(count);
+        res.json({ success: true, count, status: worker.getStatus() });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // GET /player - Returns current playback state
 router.get('/player', async (req, res) => {
     try {
