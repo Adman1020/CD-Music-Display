@@ -29,6 +29,17 @@ function notify(msg, type) {
 export async function initShelf() {
     const container = document.getElementById('shelf-container');
     
+    // Immediately apply saved scale on app startup so center cover art and spines size correctly
+    const savedScale = parseInt(localStorage.getItem('shelfScale') || document.documentElement.style.getPropertyValue('--shelf-height') || 300, 10);
+    if (savedScale && !isNaN(savedScale)) {
+        currentScale = savedScale;
+        scaleMultiplier = savedScale / 300;
+        SPINE_WIDTH = Math.round(28 * scaleMultiplier);
+        CENTER_WIDTH = savedScale;
+        GAP = Math.round(4 * Math.max(1, scaleMultiplier * 0.8));
+        document.documentElement.style.setProperty('--shelf-height', `${savedScale}px`);
+    }
+    
     window.addEventListener('shelfScaleChanged', (e) => {
         const h = e.detail.scale || 300;
         currentScale = h;
@@ -211,6 +222,77 @@ async function fetchSpine(el) {
                 el.classList.add(`spine-type-${st}`);
                 el.classList.add('has-authentic-spine');
             }
+            
+            if (data.styleMeta) {
+                const meta = data.styleMeta;
+                const textEl = el.querySelector('.album-spine-text');
+                if (textEl) {
+                    if (meta.fontFamily) textEl.style.fontFamily = `"${meta.fontFamily}", Inter, sans-serif`;
+                    if (meta.fontWeight) textEl.style.fontWeight = meta.fontWeight;
+                    if (meta.textTransform && meta.textTransform !== 'none') textEl.style.textTransform = meta.textTransform;
+                    
+                    // Intelligent font scaling to prevent long titles or wide fonts from falling off the ends
+                    const totalChars = (artist || '').length + (name || '').length;
+                    if (totalChars > 36) {
+                        textEl.style.fontSize = '9.5px';
+                        textEl.style.letterSpacing = '-0.5px';
+                    } else if (totalChars > 26) {
+                        textEl.style.fontSize = '11px';
+                        textEl.style.letterSpacing = 'normal';
+                    } else if (totalChars > 18) {
+                        textEl.style.fontSize = '12px';
+                        if (meta.letterSpacing === '2px' || meta.letterSpacing === '3px') {
+                            textEl.style.letterSpacing = '0.5px';
+                        } else if (meta.letterSpacing && meta.letterSpacing !== 'normal') {
+                            textEl.style.letterSpacing = meta.letterSpacing;
+                        }
+                    } else if (meta.letterSpacing && meta.letterSpacing !== 'normal') {
+                        textEl.style.letterSpacing = meta.letterSpacing;
+                    }
+                    if (meta.textColor) {
+                        textEl.style.color = meta.textColor;
+                        // Intelligent contrast protection: calculate luminance of text color to apply high-contrast shadow glow over artwork slices
+                        const hex = meta.textColor.replace('#', '');
+                        if (hex.length === 6 || hex.length === 3) {
+                            const fullHex = hex.length === 3 ? hex.split('').map(x => x + x).join('') : hex;
+                            const r = parseInt(fullHex.substring(0, 2), 16) || 0;
+                            const g = parseInt(fullHex.substring(2, 4), 16) || 0;
+                            const b = parseInt(fullHex.substring(4, 6), 16) || 0;
+                            const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+                            if (luminance > 140) {
+                                // Bright text -> deep black contrast shadow glow
+                                textEl.style.textShadow = '0 0 4px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.8)';
+                            } else {
+                                // Dark text -> crisp white contrast shadow glow
+                                textEl.style.textShadow = '0 0 4px rgba(255,255,255,0.95), 0 1px 3px rgba(255,255,255,0.95), 0 0 10px rgba(255,255,255,0.85)';
+                            }
+                        }
+                    }
+                    
+                    if (meta.verticalAlignment) {
+                        if (meta.verticalAlignment === 'center') textEl.style.justifyContent = 'center';
+                        else if (meta.verticalAlignment === 'end') textEl.style.justifyContent = 'flex-end';
+                        else textEl.style.justifyContent = 'flex-start';
+                    }
+                    
+                    const artistEl = textEl.querySelector('.spine-artist');
+                    if (artistEl && meta.artistColor) artistEl.style.color = meta.artistColor;
+                    const dividerEl = textEl.querySelector('.spine-divider');
+                    if (dividerEl && meta.textColor) dividerEl.style.color = meta.textColor;
+                }
+                
+                if (meta.catalogNumber && !el.querySelector('.spine-catalog')) {
+                    const catDiv = document.createElement('div');
+                    catDiv.className = 'spine-catalog';
+                    catDiv.textContent = meta.catalogNumber;
+                    if (meta.textColor) {
+                        catDiv.style.color = meta.textColor;
+                        catDiv.style.textShadow = textEl ? textEl.style.textShadow : '1px 1px 2px rgba(0,0,0,0.9)';
+                    }
+                    el.appendChild(catDiv);
+                }
+                el.classList.add('has-ai-style');
+            }
         }
     } catch(e) {
         console.error("Failed to load spine", e);
@@ -244,7 +326,7 @@ function renderShelf() {
     const closeBtn = document.createElement('button');
     closeBtn.id = 'close-center-btn';
     closeBtn.title = 'Fold back into shelf';
-    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         isCenterPoppedOut = false;
@@ -260,7 +342,7 @@ function renderShelf() {
         }, 300);
     });
     
-    // Inject the Glass Overlay Template and place closeBtn inside it
+    // Inject the Glass Overlay Template and place closeBtn inside it so it only shows when overlay is active
     const template = document.getElementById('glass-overlay-template');
     if (template) {
         const overlayNode = template.content.cloneNode(true);
@@ -277,9 +359,8 @@ function renderShelf() {
         if (dragDistance > 5) return;
         const overlay = centerBox.querySelector('.glass-controls-overlay');
         if (overlay) {
-            // If clicking inside a control, don't toggle visibility
-            if (e.target.closest('.control-btn') || e.target.closest('#glass-progress-container') || e.target.closest('.btn-primary')) {
-                // Keep the overlay alive by resetting the timeout
+            // If clicking inside a control or close button, don't toggle visibility
+            if (e.target.closest('.control-btn') || e.target.closest('#glass-progress-container') || e.target.closest('.btn-primary') || e.target.closest('#close-center-btn')) {
                 resetOverlayTimeout(overlay);
                 return;
             }
@@ -350,6 +431,10 @@ function renderShelf() {
         let text = document.createElement('div');
         text.className = 'album-spine-text';
         text.innerHTML = `<span class="spine-artist">${album.artist}</span><span class="spine-divider">—</span><span class="spine-album">${album.name}</span>`;
+        
+        const initChars = (album.artist || '').length + (album.name || '').length;
+        if (initChars > 36) text.style.fontSize = '10px';
+        else if (initChars > 26) text.style.fontSize = '11px';
         
         el.appendChild(bg);
         el.appendChild(text);

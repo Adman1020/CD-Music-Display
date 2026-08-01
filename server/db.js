@@ -56,6 +56,9 @@ try {
 try {
     db.exec(`ALTER TABLE album_spines ADD COLUMN cover_url TEXT;`);
 } catch (e) {}
+try {
+    db.exec(`ALTER TABLE album_spines ADD COLUMN style_meta TEXT;`);
+} catch (e) {}
 
 // Clean up any previously cached invalid wide spine scans (>95px width) so worker re-processes them
 try {
@@ -216,12 +219,18 @@ module.exports = {
 
     // Spine cache
     getSpineCache: (spotifyId) => {
-        const row = db.prepare('SELECT spine_url, spine_type, spine_width, cover_url FROM album_spines WHERE spotify_id = ?').get(spotifyId);
-        return row ? { spineUrl: row.spine_url, spineType: row.spine_type, spineWidth: row.spine_width || 28, coverUrl: row.cover_url || null } : null;
+        const row = db.prepare('SELECT spine_url, spine_type, spine_width, cover_url, style_meta FROM album_spines WHERE spotify_id = ?').get(spotifyId);
+        if (!row) return null;
+        let styleMeta = null;
+        if (row.style_meta) {
+            try { styleMeta = JSON.parse(row.style_meta); } catch (e) {}
+        }
+        return { spineUrl: row.spine_url, spineType: row.spine_type, spineWidth: row.spine_width || 28, coverUrl: row.cover_url || null, styleMeta };
     },
-    setSpineCache: (spotifyId, spineUrl, spineType = null, spineWidth = 28, coverUrl = null) => {
+    setSpineCache: (spotifyId, spineUrl, spineType = null, spineWidth = 28, coverUrl = null, styleMeta = null) => {
         const w = Math.min(64, Math.max(26, parseInt(spineWidth) || 28));
-        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, spine_width, cover_url, last_checked) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType, w, coverUrl || null);
+        const metaStr = styleMeta ? JSON.stringify(styleMeta) : null;
+        db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, spine_width, cover_url, style_meta, last_checked) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType, w, coverUrl || null, metaStr);
     },
     clearSpineCache: () => {
         db.prepare('DELETE FROM album_spines').run();

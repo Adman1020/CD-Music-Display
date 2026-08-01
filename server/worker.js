@@ -55,33 +55,54 @@ function sanitizeAlbumName(name) {
 }
 
 // ----------------------------------------------------------------------
-// Generative Vector (SVG) Spine Design Engine
+// AI Spine Typography & Style Engine
 // ----------------------------------------------------------------------
 async function resolveAlbumArtwork(album, useAi, aiConfig) {
-    const fs = require('fs');
-    const path = require('path');
-    const dataDir = path.join(__dirname, '../data');
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-
     const coverUrl = album.image || null;
     let usedAi = false;
 
-    // Generative Vector (SVG) Pipeline
+    // AI Typography & Style Pipeline
     if (useAi && aiConfig && aiConfig.provider && aiConfig.key) {
         try {
             const cleanName = sanitizeAlbumName(album.name);
-            log(`Generating custom vector SVG spine for: ${cleanName} by ${album.artist} via ${aiConfig.provider} (${aiConfig.model})...`);
+            log(`Selecting authentic AI typography & style for: ${cleanName} by ${album.artist} via ${aiConfig.provider}...`);
             
-            const prompt = `You are an elite graphic designer specializing in authentic physical CD packaging design. Your task is to design a historically and stylistically accurate CD spine as a raw SVG element specifically for the album "${cleanName}" by "${album.artist}".\n\n` +
-                           `Strict Design Constraints:\n` +
-                           `1. Specific Album Era & Aesthetic: Do NOT make a generic design for the artist as a whole. An artist's branding, typography style, color palette, and logo change over time; your design MUST reflect the specific point in time, visual identity, and art style of this exact album release. Make it look like it could be the genuine physical spine printed for this specific CD.\n` +
-                           `2. Root Element: MUST be <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 3000" width="100%" height="100%"> (exact 1:10 aspect ratio representing a single jewel case spine).\n` +
-                           `3. Background & Styling: Use accurate color fills, SVG linear/radial gradients, patterns, or artwork motifs that directly echo the original album cover and release era.\n` +
-                           `4. Vertical Typography: Include prominent vertical text using <text> tags with styling (font family, weight, tracking, letter-spacing, and casing) that matches the specific typography and logo vibe used on this album. Rotate the text (using transform="rotate(270, 140, 1500)" or transform="rotate(90, 140, 1500)") so it reads cleanly along the length of the spine. Clearly display the artist name and album title.\n` +
-                           `5. Commercial Authenticity: At the bottom or top end of the spine (near y=180 or y=2820), include a tiny simulated record label logo symbol (simple vector marks/shapes) and a simulated catalog serial number (e.g. "CD-78219" in small font) to evoke an authentic physical commercial release.\n` +
-                           `6. Do NOT draw external plastic jewel case glare, reflections, or 3D borders (our frontend CSS acrylic glass engine automatically projects realistic polycarbonate jewel case lighting over top of your printed artwork strip).\n` +
-                           `7. Efficiency & Clean Vector Code: Do NOT attempt to recreate photographic artwork using dense, overly complex <path> tracing or thousands of coordinates. Use elegant, clean vector design primitives (<rect>, <circle>, <polygon>, <line>, <g>, SVG gradients, and stylized <text>) so the SVG remains compact (under 300 lines of XML), renders instantly, and never exceeds output limits.\n\n` +
-                           `Return ONLY the complete valid raw SVG code starting with <svg and ending with </svg>. Do not wrap in markdown code blocks or include explanatory prose.`;
+            const fontCategories = [
+                "Abril Fatface, Bodoni Moda, Playfair Display, Cinzel, Julius Sans One (classical, elegant, baroque, jazz, soul, or timeless luxury)",
+                "Anton, Bebas Neue, Oswald, Montserrat, Passion One, Russo One (bold pop, heavy beats, punchy mainstream, or iconic modern block text)",
+                "Audiowide, Orbitron, Syncopate, Zen Dots, Monoton, Righteous (synthwave, neon cyberpunk, electronic futurism, or techno LED display)",
+                "Creepster, Nosifer, UnifrakturMaguntia, Special Elite, Space Grotesk, Bungee Inline (rock, heavy metal, gothic blackletter, grunge, or raw analog zine punk)",
+                "Permanent Marker, Sedgwick Ave Display, Lobster, Bangers, Racing Sans One, Inter, Press Start 2P, Outfit (handwritten indie tag art, comic poster style, urban streetwear, 8-bit digital, or geometric perfection)"
+            ];
+            const shuffledCategories = fontCategories.sort(() => Math.random() - 0.5).map((cat, i) => `${i+1}. ${cat}`).join("\n");
+            
+            const prompt = `You are an elite graphic designer and music art historian. Your task is to select the most authentically styled typography, colors, and design metadata for the vertical text overlay on the physical CD spine of the album "${cleanName}" by "${album.artist}".\n\n` +
+                           `CRITICAL CREATIVE DIVERSITY & ANTI-REPETITION RULES:\n` +
+                           `- Avoid boring default font selections! Do not rely on cliché choices like Anton, Bebas Neue, or Orbitron for every record.\n` +
+                           `- To make a vibrant physical CD rack where every jewelcase spine looks distinct, explore our FULL typeface palette. Even within a musical genre, seek out surprising, artistic, editorial, retro, or boutique font variations!\n` +
+                           `- If the album or artist name is long (> 25 characters), avoid ultra-wide fonts and choose tighter lettering ("letterSpacing": "normal" or "-1px") so the title fits comfortably on the narrow jewel case without falling off the edge!\n\n` +
+                           `CRITICAL READABILITY RULES: This text will appear vertically over a slice of the album's actual cover artwork.\n` +
+                           `- You MUST ensure extreme typographic contrast and readability over complex artwork slices.\n` +
+                           `- For dark or vibrant cover art, choose crisp, bright, luminous colors (e.g., pure white #FFFFFF, cream #F8F6F0, neon yellow #FFEA00, or bright cyan #00F0FF).\n` +
+                           `- For light or white cover art, choose bold, deep, authoritative dark colors (e.g., jet black #0A0A0A, deep navy #0A192F, or dark burgundy #3A0007).\n` +
+                           `- Never select medium, muted, or low-contrast colors that could wash out or blend into artwork.\n\n` +
+                           `OPTIMAL VERTICAL TEXT POSITIONING:\n` +
+                           `- To avoid clashing with visual clutter or dominant design elements on the artwork slice, decide where along the vertical spine the typography will look best and be most legible.\n` +
+                           `- Select "verticalAlignment": "start" (bottom-aligned, classic CD style), "center" (centered vertically), or "end" (top-aligned, leaving breathing room below).\n\n` +
+                           `Available Google Fonts (choose ONE from this randomized palette):\n` +
+                           `${shuffledCategories}\n\n` +
+                           `Return ONLY a valid JSON object matching this exact schema (no markdown, no explanations):\n` +
+                           `{\n` +
+                           `  "fontFamily": "Selected font family name exactly as spelled above",\n` +
+                           `  "fontWeight": "400 or 700 or 800",\n` +
+                           `  "letterSpacing": "normal or 1px or 2px or -1px",\n` +
+                           `  "textTransform": "uppercase or lowercase or capitalize or none",\n` +
+                           `  "textColor": "#hexcode high-contrast readable album title color",\n` +
+                           `  "artistColor": "#hexcode complementary high-contrast artist color",\n` +
+                           `  "verticalAlignment": "start or center or end",\n` +
+                           `  "catalogNumber": "Simulated or real catalog number e.g. CD-78219 or 4AD-0012",\n` +
+                           `  "recordLabel": "Simulated or real record label name"\n` +
+                           `}`;
 
             let generatedText = "";
             usedAi = true;
@@ -93,7 +114,8 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     body: JSON.stringify({
                         model: aiConfig.model || 'gpt-4o-mini',
                         messages: [{ role: "user", content: prompt }],
-                        max_tokens: 4096
+                        max_tokens: 350,
+                        temperature: 0.9
                     })
                 });
                 const data = await res.json();
@@ -106,7 +128,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 }
+                        generationConfig: { maxOutputTokens: 500, temperature: 0.9 }
                     })
                 });
                 const data = await res.json();
@@ -119,7 +141,8 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                     headers: { 'Content-Type': 'application/json', 'x-api-key': aiConfig.key, 'anthropic-version': '2023-06-01' },
                     body: JSON.stringify({
                         model: aiConfig.model || 'claude-3-5-sonnet-20240620',
-                        max_tokens: 4096,
+                        max_tokens: 350,
+                        temperature: 0.9,
                         messages: [{ role: "user", content: prompt }]
                     })
                 });
@@ -128,37 +151,22 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                 generatedText = data.content[0].text;
             }
 
-            // Extract the clean SVG tag
-            const svgMatch = generatedText.match(/<svg[\s\S]*?<\/svg>/i);
-            if (svgMatch) {
-                const filename = `spine_${album.id}.svg`;
-                const filepath = path.join(dataDir, filename);
-                fs.writeFileSync(filepath, svgMatch[0], 'utf-8');
-                log(`Successfully generated vector SVG spine for ${album.artist} - ${album.name}`);
-                return { coverUrl, spineUrl: `/data/${filename}`, spineType: 'ai_svg', spineWidth: 28, usedAi: true };
+            const jsonMatch = generatedText.match(/\{[\s\S]*?\}/);
+            if (jsonMatch) {
+                const styleMeta = JSON.parse(jsonMatch[0]);
+                log(`✨ AI Styled spine for ${album.artist} - ${album.name} -> Font: ${styleMeta.fontFamily} | Align: ${styleMeta.verticalAlignment || 'start'} | Color: ${styleMeta.textColor}`);
+                return { coverUrl, spineUrl: '', spineType: 'ai_style', spineWidth: 28, usedAi: true, styleMeta };
             } else {
-                // Check if response started with <svg but got truncated before </svg>
-                const partialMatch = generatedText.match(/<svg[\s\S]+/i);
-                if (partialMatch && partialMatch[0].length > 100) {
-                    const salvagedSvg = partialMatch[0] + "\n</svg>";
-                    const filename = `spine_${album.id}.svg`;
-                    const filepath = path.join(dataDir, filename);
-                    fs.writeFileSync(filepath, salvagedSvg, 'utf-8');
-                    log(`⚠️ Salvaged truncated SVG spine for ${album.artist} - ${album.name} by appending missing </svg> tag.`);
-                    return { coverUrl, spineUrl: `/data/${filename}`, spineType: 'ai_svg', spineWidth: 28, usedAi: true };
-                }
-                
-                const preview = generatedText.length > 180 ? generatedText.substring(0, 180) + "..." : generatedText;
-                log(`AI response did not contain valid SVG syntax (Length: ${generatedText.length} chars). Preview: ${preview.replace(/\n/g, " ")}`);
+                log(`AI response did not contain valid JSON syntax. Preview: ${generatedText}`);
             }
         } catch (err) {
-            log(`Generative SVG design error for ${album.name}: ${err.message}`);
+            log(`AI Typography style error for ${album.name}: ${err.message}`);
         }
     }
 
-    // Ultimate Fallback: Default left-edge slice of Spotify cover art at standard single jewel case width (28px)
-    log(`Using fallback left-edge cover slice at standard single jewel case width (28px).`);
-    return { coverUrl, spineUrl: '', spineType: 'none', spineWidth: 28, usedAi };
+    // Default Fallback: Reliable left-edge cover slice with Inter styling
+    log(`Using standard left-edge cover slice at single jewel case width (28px).`);
+    return { coverUrl, spineUrl: '', spineType: 'none', spineWidth: 28, usedAi, styleMeta: null };
 }
 
 // ----------------------------------------------------------------------
@@ -180,10 +188,16 @@ async function processNextAlbum() {
         workerStatus.totalAlbums = albums.length;
         workerStatus.processedCount = db.getSpineCount();
         
+        const settings = db.getSettings();
+        const enableSpine = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
+        const useAi = settings.useAiVision === true || settings.useAiVision === 'true' || settings.useAiVision === 1;
+        const aiTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0;
+
         let targetAlbum = null;
         for (const album of albums) {
             const cache = db.getSpineCache(album.id);
-            if (!cache) {
+            // Target if uncached, or if AI styling is enabled but this album hasn't received AI typography styles yet
+            if (!cache || (enableSpine && useAi && (!cache.styleMeta || cache.spineType !== 'ai_style'))) {
                 targetAlbum = album;
                 break;
             }
@@ -195,11 +209,6 @@ async function processNextAlbum() {
             timerId = setTimeout(processNextAlbum, 60000); // Check again in a minute
             return;
         }
-        
-        const settings = db.getSettings();
-        const enableSpine = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
-        const useAi = settings.useAiVision === true || settings.useAiVision === 'true' || settings.useAiVision === 1;
-        const aiTestingMode = settings.aiTestingMode !== 'false' && settings.aiTestingMode !== false && settings.aiTestingMode !== 0;
         
         if (enableSpine && useAi && aiTestingMode && testBatchRemaining <= 0) {
             workerStatus.state = "Paused (AI Testing Mode active — Turn mode OFF or click 'Process 5 Albums' to run a test batch)";
@@ -220,7 +229,7 @@ async function processNextAlbum() {
             return;
         }
 
-        workerStatus.state = `Resolving artwork (${useAi ? 'Generative Vector AI' : 'Standard'})`;
+        workerStatus.state = `Resolving artwork (${useAi ? 'AI Typography & Style Engine' : 'Standard'})`;
         
         const result = await resolveAlbumArtwork(targetAlbum, useAi, {
             provider: db.getConfig('aiProvider'),
@@ -237,19 +246,21 @@ async function processNextAlbum() {
         }
 
         // Save result to SQLite cache
-        db.setSpineCache(targetAlbum.id, result.spineUrl, result.spineType, result.spineWidth, result.coverUrl);
+        db.setSpineCache(targetAlbum.id, result.spineUrl, result.spineType, result.spineWidth, result.coverUrl, result.styleMeta);
         workerStatus.processedCount = db.getSpineCount();
         
-        // Determine courteous rate limit delay
-        let delayMs = 3000;
-        const aiRateLimit = db.getConfig('aiRateLimit');
-        if (result.usedAi && aiRateLimit) {
-            const reqPerMin = parseInt(aiRateLimit, 10) || 1;
-            delayMs = Math.max(3000, (60 / reqPerMin) * 1000);
+        // Determine rate limit delay (only enforce user-configured delay when using AI)
+        let delayMs = 50; // Practically instant when processing locally without AI
+        if (result.usedAi) {
+            const aiRateLimit = db.getConfig('aiRateLimit');
+            const reqPerMin = parseInt(aiRateLimit, 10) || 30; // Default to 30 req/min if unspecified
+            delayMs = Math.max(100, Math.round((60 / reqPerMin) * 1000));
+            const seconds = (delayMs / 1000).toFixed(1);
+            workerStatus.state = `Waiting (${seconds}s rate limit delay)...`;
+            log(`Waiting ${seconds}s (based on ${reqPerMin} req/min limit) before next album...`);
+        } else {
+            workerStatus.state = "Processing local album...";
         }
-        
-        workerStatus.state = `Waiting (${Math.round(delayMs/1000)}s rate limit delay)...`;
-        log(`Waiting ${Math.round(delayMs/1000)}s before next album...`);
         timerId = setTimeout(processNextAlbum, delayMs);
         
     } catch (e) {

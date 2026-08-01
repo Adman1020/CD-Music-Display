@@ -432,6 +432,7 @@ function updateShelfScaleUI(val) {
     else text += " (Life-Size CD)";
     if (label) label.textContent = text;
     
+    localStorage.setItem('shelfScale', val);
     document.documentElement.style.setProperty('--shelf-height', `${val}px`);
     window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: parseInt(val, 10) } }));
 }

@@ -400,17 +400,19 @@ body {
 
 .album-spine-text {
     position: absolute;
-    inset: 15px 0;
+    inset: 16px 0 16px 0;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     writing-mode: vertical-rl;
     white-space: nowrap;
-    font-size: 13px;
-    letter-spacing: 0.5px;
+    font-size: 12.5px;
+    letter-spacing: 0.2px;
     text-shadow: 1px 1px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
     z-index: 2;
     transition: opacity 0.4s;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .spine-artist {
@@ -427,6 +429,28 @@ body {
 .spine-album {
     font-weight: 400;
     color: rgba(255,255,255,0.65);
+}
+
+.album-spine.has-ai-style .album-spine-text {
+    inset: 16px 0 22px 0;
+    transition: all 0.3s ease;
+}
+
+.spine-catalog {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 600;
+    font-family: monospace;
+    letter-spacing: -0.5px;
+    opacity: 0.8;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
 }
 
 /* Authentic Spine Rendering Logic */
@@ -508,10 +532,10 @@ body {
 /* Close Center Button (Top Right of Cover) */
 #close-center-btn {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 26px;
-    height: 26px;
+    top: 6px;
+    right: 6px;
+    width: 36px;
+    height: 36px;
     background: none;
     border: none;
     color: rgba(255, 255, 255, 0.75);
@@ -547,7 +571,7 @@ body {
         transform: translate(-50%, -50%) rotateY(0deg);
     }
     100% {
-        width: 28px;
+        width: calc(28px * (var(--shelf-height, 300px) / 300));
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
@@ -555,7 +579,7 @@ body {
 
 @keyframes foldOutFromSpine {
     0% {
-        width: 28px;
+        width: calc(28px * (var(--shelf-height, 300px) / 300));
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
@@ -905,10 +929,10 @@ body {
     flex: 1;
     display: flex;
     flex-direction: row;
-    gap: 48px;
-    padding: 48px;
+    gap: 28px;
+    padding: 32px 48px;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
     align-items: flex-start;
 }
 
@@ -916,11 +940,16 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    min-width: 300px;
+    min-width: 290px;
+    max-width: 380px;
+    flex: 1 0 auto;
+    max-height: calc(100vh - 130px);
+    overflow-y: auto;
+    scrollbar-width: thin;
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: 16px;
-    padding: 24px;
+    padding: 20px;
 }
 
 .setting-group {

@@ -162,12 +162,12 @@ router.get('/albums/:id/spine', (req, res) => {
         const spotifyId = req.params.id;
         const cached = db.getSpineCache(spotifyId);
         if (cached) {
-            return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null, spineWidth: cached.spineWidth || 28, coverUrl: cached.coverUrl || null });
+            return res.json({ spineUrl: cached.spineUrl || null, spineType: cached.spineType || null, spineWidth: cached.spineWidth || 28, coverUrl: cached.coverUrl || null, styleMeta: cached.styleMeta || null });
         }
         // Return default values; let the background worker process the album properly with AI Vision
-        res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null });
+        res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null, styleMeta: null });
     } catch (e) {
-        res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null });
+        res.json({ spineUrl: null, spineType: 'none', spineWidth: 28, coverUrl: null, styleMeta: null });
     }
 });
 
