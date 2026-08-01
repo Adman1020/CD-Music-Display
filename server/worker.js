@@ -139,8 +139,8 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                         log(`Explicit 'Spine' image has aspect ratio ${ratio.toFixed(2)} (not a thin spine strip). Reclassifying as candidate scan for AI bounding-box extraction.`);
                         wideSpineCandidate = spineImg;
                     } else {
-                        // Calculate proportional width when scaled to 300px height, allowed range 18px to 95px
-                        const calcWidth = Math.min(95, Math.max(18, Math.round(300 * ratio)));
+                        // Calculate proportional width when scaled to 300px height, allowed range 26px to 64px
+                        const calcWidth = Math.min(64, Math.max(26, Math.round(300 * ratio)));
                         const filename = `spine_${album.id}.jpg`;
                         await img.resize({ width: calcWidth, height: 300, fit: 'fill' }).toFile(path.join(dataDir, filename));
                         spineUrl = `/data/${filename}`;
@@ -265,7 +265,7 @@ async function resolveAlbumArtwork(album, useAi, aiConfig) {
                                 const cropH = Math.min(metadata.height - cropY, Math.floor(parsed.box.height * metadata.height));
                                 
                                 if (cropW > 3 && cropH > 5) {
-                                    const calcWidth = Math.min(95, Math.max(18, Math.round(300 * (cropW / cropH))));
+                                    const calcWidth = Math.min(64, Math.max(26, Math.round(300 * (cropW / cropH))));
                                     const filename = `spine_${album.id}.jpg`;
                                     await img.extract({ left: cropX, top: cropY, width: cropW, height: cropH })
                                         .resize({ width: calcWidth, height: 300, fit: 'fill' })

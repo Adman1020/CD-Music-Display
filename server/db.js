@@ -220,7 +220,7 @@ module.exports = {
         return row ? { spineUrl: row.spine_url, spineType: row.spine_type, spineWidth: row.spine_width || 28, coverUrl: row.cover_url || null } : null;
     },
     setSpineCache: (spotifyId, spineUrl, spineType = null, spineWidth = 28, coverUrl = null) => {
-        const w = Math.min(95, Math.max(18, parseInt(spineWidth) || 28));
+        const w = Math.min(64, Math.max(26, parseInt(spineWidth) || 28));
         db.prepare('INSERT OR REPLACE INTO album_spines (spotify_id, spine_url, spine_type, spine_width, cover_url, last_checked) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)').run(spotifyId, spineUrl || '', spineType, w, coverUrl || null);
     },
     clearSpineCache: () => {

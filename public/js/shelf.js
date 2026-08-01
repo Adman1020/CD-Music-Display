@@ -345,8 +345,8 @@ function renderShelf() {
                 }
             }
             
-            // Smoothly scroll this item to center
-            vVelocity = -diff * (w + GAP) * 0.1; 
+            // Smoothly scroll this item to center (scaled to universal scroll grid index distance)
+            vVelocity = -diff * (SPINE_WIDTH + GAP) * 0.1; 
         });
         
         spineObserver.observe(el);
