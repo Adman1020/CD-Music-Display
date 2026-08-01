@@ -20,13 +20,13 @@
     --radius-lg: 20px;
     
     --shadow-glow: 0 0 40px rgba(29, 185, 84, 0.15);
-    --shelf-height: 320px;
-    --spine-width: 35px;
-    --inlay-left: 5px;
-    --inlay-top: 10px;
-    --inlay-width: 25px;
-    --inlay-height: 302px;
-    --spine-frame-url: url('/images/spines/frame-320.png');
+    --shelf-height: 460px;
+    --spine-width: 50px;
+    --inlay-left: 8px;
+    --inlay-top: 14px;
+    --inlay-width: 35px;
+    --inlay-height: 432px;
+    --spine-frame-url: url('/images/spines/frame-460.png');
     
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -342,8 +342,8 @@ body {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: var(--spine-width, 35px);
-    height: var(--shelf-height, 320px);
+    width: var(--spine-width, 50px);
+    height: var(--shelf-height, 460px);
     border-radius: 4px;
     overflow: hidden;
     cursor: pointer;
@@ -554,12 +554,12 @@ body {
 
 @keyframes foldInToSpine {
     0% {
-        width: var(--shelf-height, 320px);
+        width: var(--shelf-height, 460px);
         opacity: 1;
         transform: translate(-50%, -50%) rotateY(0deg);
     }
     100% {
-        width: var(--spine-width, 35px);
+        width: var(--spine-width, 50px);
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
@@ -567,12 +567,12 @@ body {
 
 @keyframes foldOutFromSpine {
     0% {
-        width: var(--spine-width, 35px);
+        width: var(--spine-width, 50px);
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
     100% {
-        width: var(--shelf-height, 320px);
+        width: var(--shelf-height, 460px);
         opacity: 1;
         transform: translate(-50%, -50%) rotateY(0deg);
     }

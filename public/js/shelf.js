@@ -15,27 +15,27 @@ let isCenterPoppedOut = true;
 let pendingPopOutIndex = null;
 let overlayHideTimeout = null;
 
-let SPINE_WIDTH = 35;
-let CENTER_WIDTH = 320;
-let GAP = 5;
-let currentScale = 320;
+let SPINE_WIDTH = 50;
+let CENTER_WIDTH = 460;
+let GAP = 6;
+let currentScale = 460;
 let scaleMultiplier = 1.0;
 
 const SPINE_SCALE_CONFIG = {
-    "240": { height: 240, width: 26, left: 4, top: 7, inlayW: 18, inlayH: 227, gap: 4, frame: "/images/spines/frame-240.png" },
-    "320": { height: 320, width: 35, left: 5, top: 10, inlayW: 25, inlayH: 302, gap: 5, frame: "/images/spines/frame-320.png" },
-    "420": { height: 420, width: 46, left: 7, top: 13, inlayW: 32, inlayH: 396, gap: 6, frame: "/images/spines/frame-420.png" }
+    "300": { height: 300, width: 33, left: 5, top: 9, inlayW: 23, inlayH: 282, gap: 4, frame: "/images/spines/frame-300.png" },
+    "460": { height: 460, width: 50, left: 8, top: 14, inlayW: 35, inlayH: 432, gap: 6, frame: "/images/spines/frame-460.png" },
+    "700": { height: 700, width: 76, left: 12, top: 21, inlayW: 52, inlayH: 658, gap: 8, frame: "/images/spines/frame-700.png" }
 };
 
 function applyScaleConfig(val) {
     let numVal = parseInt(val, 10);
-    if (numVal <= 280) numVal = 240;
-    else if (numVal >= 380) numVal = 420;
-    else numVal = 320;
+    if (numVal <= 380) numVal = 300;
+    else if (numVal >= 580) numVal = 700;
+    else numVal = 460;
     
-    const cfg = SPINE_SCALE_CONFIG[String(numVal)] || SPINE_SCALE_CONFIG["320"];
+    const cfg = SPINE_SCALE_CONFIG[String(numVal)] || SPINE_SCALE_CONFIG["460"];
     currentScale = cfg.height;
-    scaleMultiplier = cfg.height / 320;
+    scaleMultiplier = cfg.height / 460;
     SPINE_WIDTH = cfg.width;
     CENTER_WIDTH = cfg.height;
     GAP = cfg.gap;
@@ -70,11 +70,11 @@ function notify(msg, type) {
 export async function initShelf() {
     const container = document.getElementById('shelf-container');
     
-    const savedScale = parseInt(localStorage.getItem('shelfScale') || document.documentElement.style.getPropertyValue('--shelf-height') || 320, 10);
+    const savedScale = parseInt(localStorage.getItem('shelfScale') || document.documentElement.style.getPropertyValue('--shelf-height') || 460, 10);
     applyScaleConfig(savedScale);
     
     window.addEventListener('shelfScaleChanged', (e) => {
-        applyScaleConfig(e.detail.scale || 320);
+        applyScaleConfig(e.detail.scale || 460);
     });
     
     // Virtual Carousel Events - 1 album per notch on mouse wheel

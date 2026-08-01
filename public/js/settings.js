@@ -201,10 +201,10 @@ async function loadSettings() {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
             }
-            let scaleVal = parseInt(settings.shelfScale || localStorage.getItem('shelfScale') || '320', 10);
-            if (scaleVal <= 280) scaleVal = 240;
-            else if (scaleVal >= 380) scaleVal = 420;
-            else scaleVal = 320;
+            let scaleVal = parseInt(settings.shelfScale || localStorage.getItem('shelfScale') || '460', 10);
+            if (scaleVal <= 380) scaleVal = 300;
+            else if (scaleVal >= 580) scaleVal = 700;
+            else scaleVal = 460;
             document.getElementById('setting-shelf-scale').value = String(scaleVal);
             updateShelfScaleUI(scaleVal);
             // Spine processing toggle defaults to OFF unless explicitly set to true
@@ -423,19 +423,19 @@ async function saveSetting(key, value) {
 }
 
 const SPINE_SCALE_CONFIG = {
-    "240": { height: 240, width: 26, left: 4, top: 7, inlayW: 18, inlayH: 227, frame: "/images/spines/frame-240.png" },
-    "320": { height: 320, width: 35, left: 5, top: 10, inlayW: 25, inlayH: 302, frame: "/images/spines/frame-320.png" },
-    "420": { height: 420, width: 46, left: 7, top: 13, inlayW: 32, inlayH: 396, frame: "/images/spines/frame-420.png" }
+    "300": { height: 300, width: 33, left: 5, top: 9, inlayW: 23, inlayH: 282, frame: "/images/spines/frame-300.png" },
+    "460": { height: 460, width: 50, left: 8, top: 14, inlayW: 35, inlayH: 432, frame: "/images/spines/frame-460.png" },
+    "700": { height: 700, width: 76, left: 12, top: 21, inlayW: 52, inlayH: 658, frame: "/images/spines/frame-700.png" }
 };
 
 function updateShelfScaleUI(val) {
     let numVal = parseInt(val, 10);
-    if (numVal <= 280) numVal = 240;
-    else if (numVal >= 380) numVal = 420;
-    else numVal = 320;
+    if (numVal <= 380) numVal = 300;
+    else if (numVal >= 580) numVal = 700;
+    else numVal = 460;
     
     const scaleKey = String(numVal);
-    const cfg = SPINE_SCALE_CONFIG[scaleKey] || SPINE_SCALE_CONFIG["320"];
+    const cfg = SPINE_SCALE_CONFIG[scaleKey] || SPINE_SCALE_CONFIG["460"];
     
     localStorage.setItem('shelfScale', scaleKey);
     
