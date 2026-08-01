@@ -192,6 +192,16 @@ router.post('/worker/reprocess', (req, res) => {
     }
 });
 
+// POST /worker/clear-spines - Clears SQLite spine cache and removes physical files from /data/
+router.post('/worker/clear-spines', (req, res) => {
+    try {
+        db.clearSpineCache();
+        res.json({ success: true, count: 0 });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // GET /player - Returns current playback state
 router.get('/player', async (req, res) => {
     try {

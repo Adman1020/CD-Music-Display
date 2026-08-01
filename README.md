@@ -56,9 +56,9 @@ Because this app acts as a remote control for your Spotify account, you must cre
 - **Database:** SQLite (via `better-sqlite3`) to securely store your configuration, access tokens, and cached album art.
 - **APIs:** Spotify Web API, Cover Art Archive, MusicBrainz, + AI Vision models (optional)
 
-## Artwork Engine & Variable-Width Shelf
+## Artwork Engine & Generative Vector Spines
 
-To recreate the realism of a physical CD rack, the background worker server uses a multi-tiered pipeline that independently resolves **Front Cover Art** and **Spine Artwork** for every album in your Spotify library.
+To recreate the realism of a physical CD rack without relying on inconsistent crowdsourced photos or messy web archives, the background worker server features a **Generative Vector SVG Engine** that algorithmically designs custom high-resolution spines for your library.
 
 ### Pipeline Workflow Diagram
 
@@ -71,69 +71,43 @@ graph TD
     B --> B1(Use Spotify High-Res Cover Art for optimal quality and consistency)
     
     %% Spine Workflow
-    C --> C0{Is Spine Processing Enabled?}
-    C0 -->|No: Default| C8[Default Fallback Mode]
-    C0 -->|Yes: Experimental| C1[Query CoverArtArchive for explicit 'Spine' scan]
-    C1 --> C2{Check Aspect Ratio}
-    C2 -->|Valid Thin Spine: ratio <= 0.35| C3(Calculate Proportional Width at 300px Height<br/>Clamp: 26px to 64px<br/>Result: 'spine' with Custom Width & Hide Text)
-    C2 -->|Too Wide: ratio > 0.35| C4[Reclassify as Full Traycard Scan for AI Crop]
-    
-    C1 -->|Not Found or Reclassified| C5{Is AI Vision Enabled?}
-    C4 --> C5
-    C5 -->|Yes| C6[Send Back/Traycard/Booklet scans to AI Model]
-    C6 -->|AI Detects Valid Bounding Box| C7[Sharp Crops exact spine coordinate<br/>Clamp Width: 26px to 64px<br/>Result: 'ai_crop' & Hide Text]
-    
-    C6 -->|AI Failed / Invalid Ratio| C8
-    C5 -->|No| C8
-    C8 --> C9(Result: 'none' at Standard 28px Width<br/>Crop left-edge of Front Cover<br/>SHOW vertical HTML Text Overlay)
+    C --> C0{Is Generative AI Spines Enabled?}
+    C0 -->|No: Default| C8[Default Spotify Slice & Text Overlay]
+    C0 -->|Yes: Vector AI Mode| C1[Send Album Details & Artist Style to AI Model]
+    C1 --> C2[AI Designs custom Vector SVG Spine in 1:10 Jewel Case Ratio]
+    C2 --> C3(Save to /data/spine_spotifyId.svg<br/>Apply 3D Polycarbonate Bevel & Ridges<br/>Result: 'ai_svg' at Standard 28px Base Width)
 ```
 
 ### Key Technical Details
 
-#### 1. Consistent High-Res Front Covers & CD Format Protection
-* Front cover art is strictly sourced from Spotify's official high-resolution album imagery to guarantee vibrant visual consistency across your catalog without uneven scanner borders or brightness artifacts.
-* When scanning MusicBrainz and the Cover Art Archive for CD spines, queries explicitly append `AND format:CD` to ensure we never accidentally import vinyl gatefold or audio cassette packaging dimensions.
+#### 1. Generative Vector (SVG) CD Spines
+* Why avoid diffusion image generators (DALL-E 3, Imagen 3)? Diffusion models are expensive (~$0.04 to $0.08 per image) and notoriously struggle with vertical spelling and typography on skinny CD spines.
+* By prompting lightweight AI LLMs (Gemini, GPT, Claude) to output crisp **raw vector SVG markup**, we obtain **infinite resolution**, perfect typography, customized color palettes matching the album style, and over **99% lower cost** (<$0.0003 per album)!
+* All generated spines adhere strictly to a standard single jewel-case aspect ratio ($28\text{px} \times 300\text{px}$, a ~1:10 geometry), eliminating awkward needle-thin or overly distorted cases.
 
-#### 2. Realistic Width Clamping & Variable-Width CD Spines
-* On a physical shelf, standard single jewel cases are around ~28px wide, while double albums ("fatboxes") or deluxe digipaks are thicker (up to ~64px). To prevent distorted "needle-thin" or excessively wide scans, dimensions are strictly clamped to a realistic **26px to 64px** range.
-* Whenever a candidate scan is found on Cover Art Archive tagged as `Spine`, our server-side `sharp` image processing engine checks its geometry. Because uploaders frequently tag full unfolded back traycard scans as `Spine`, the server enforces an **Aspect Ratio Gatekeeper**: any image whose width is greater than 35% of its height is rejected as a direct spine and automatically forwarded to AI Vision to crop out the true spine flap!
-* Validated spine dimensions are proportionally calculated when scaled to a 300px shelf height:
-  $$\text{Target Width} = \min\left(64, \max\left(26, \text{round}\left(300 \times \frac{\text{original width}}{\text{original height}}\right)\right)\right)$$
+#### 2. Life-Size Shelf Zoom & Scaling
+* Want your virtual CDs to match actual physical discs on your display? Use the new **Shelf Scale & Zoom** slider inside UI Settings!
+* Dynamically scale the rack height from **Compact (300px)** up to **Desktop (460px)** and all the way to **Life-Size CD (700px)**.
+* Spine widths, cover art dimensions, gaps, and momentum scroll mechanics automatically scale in real time without blurry rendering thanks to the vector SVG artwork.
 
-#### 3. Interactive Toggleable Pop-Out Box & Sequential Animation
-* Clicking any CD spine smoothly scrolls it to the center of the screen first, waiting until the album arrives in the middle before activating a smooth 3D jewel-case pop-out animation without any cover art flickering.
-* A clean SVG minimize icon in the top right corner of the glassmorphic controls overlay allows you to fold the album away directly back into its native spine width on the rack, with adjacent CDs seamlessly sliding together to close up any empty gaps.
-
-#### 4. Authentic Text Overlay Logic & Persistent Volume Storage
-* Whenever a real scan is discovered (either an explicit Cover Art Archive spine or an AI-cropped inlay), the UI automatically hides the HTML vertical font overlay so you can appreciate the original typography printed on the CD artwork.
-* The vertical text overlay is only displayed when utilizing the default left-edge slice of the album cover art.
-* All generated spine image crops and database state are securely stored inside the persistent Docker `/data` volume, ensuring configurations and cached scans survive container upgrades and rebuilds.
+#### 3. 3D Polycarbonate Acrylic Jewel-Case Polish
+* Regardless of whether an album uses a custom AI vector spine or the default Spotify slice, the frontend styling applies realistic 3D optical acrylic effects via CSS.
+* Features simulated clear polycarbonate refraction gradients, edge shadows, and tactile top/bottom grip grooves/ridges just like a real CD jewel case.
 
 ---
 
-## CD Spine Extraction & AI Vision (Experimental)
+## Low-Cost Generative AI Model Recommendations
 
-By default, **Spine Image Processing is disabled** to ensure visual perfection across your shelf using crisp, reliable slices of Spotify album artwork. Because crowdsourced archive imagery from Cover Art Archive can sometimes feature uneven lighting, misaligned text, or incomplete traycard scans, spine extraction is treated as an **Experimental Feature**.
-
-You can enable **Spine Image Processing (AI & Heuristics)** at any time inside the UI Settings:
-- When enabled, the server uses a **Heuristics Pipeline** to sanitize album titles (removing suffixes like "(Remastered)" or "(Deluxe Edition)") and query Cover Art Archive for explicit `Spine` tagged scans.
-- If an explicit spine is absent, you can also toggle **Use AI Vision**:
-  - The background worker downloads candidate scans (back covers, traycards, booklets) and sends them to a multimodal vision model (Gemini, OpenAI, or Claude) to identify the precise bounding box of the spine flap, which is physically cropped via `sharp` and saved locally to `/data`.
-  - **Rate Limits:** To prevent unexpected API usage bills or rate throttling, configure a courteous rate limit in settings (defaulting to 1 request per minute). 
-  - **Live Diagnostics:** Monitor the background extraction engine in real-time by clicking "View AI Worker Logs & Status" inside settings!
-  - **Instant Reset:** Disabling the toggle automatically wipes experimental spine records and cleanly reverts your entire library to standard Spotify slices within seconds.
-
-### Recommended AI Models
-> *Note: Since extracting a spine requires precise spatial reasoning (identifying a bounding box and outputting strict JSON coordinates), we recommend using flagship or highly capable multimodal models.*
+When enabling Generative AI Spines in Settings, we strongly advise using cost-effective "mini" or "flash" language models that excel at structured coding and SVG generation:
 
 1. **Google Gemini**
-   - **`gemini-2.5-flash`** *(Recommended)*: Excellent speed, cost, and spatial vision accuracy. Typically offers generous daily request quotas on Google AI Studio Free Tier (up to 1,500 requests/day).
-   - **`gemini-3.0-flash`** / **`gemini-1.5-pro`**: Powerful multimodal alternatives. *(Note: brand new experimental/preview flash models like `gemini-3.6-flash` often carry strict daily 20-request caps on free tier accounts unless pay-as-you-go billing is enabled).*
-2. **Anthropic Claude**
-   - **`claude-3-5-sonnet-20240620`** *(Recommended)*: Anthropic's sweet-spot model. Outstanding at deciphering cluttered CD back-cover scans.
-3. **OpenAI**
-   - **`gpt-4o`** *(Recommended)*: The current multimodal flagship. Very fast and accurate for visual JSON coordinate extraction.
-   - **`gpt-4o-mini`**: Highly cost-effective if processing a massive CD library.
+   - **`gemini-2.5-flash`** *(Recommended)*: The ultimate balance of high speed, near-zero cost, and exceptional graphic design & SVG coding accuracy. Generous daily free tier allowances on Google AI Studio.
+   - **`gemini-3.0-flash-lite`**: Ultra-lightweight and lightning fast. Ideal for processing huge libraries on pay-as-you-go with virtually negligible token expenditure.
+2. **OpenAI**
+   - **`gpt-4o-mini`** *(Recommended)*: Exceptionally cost-effective (&lt;$0.0003 per album) while producing crisp, properly scaled SVG typography and clean color gradients.
+3. **Anthropic Claude**
+   - **`claude-3-5-haiku-20241022`** *(Recommended)*: Fast and highly creative design aesthetic for vector layout (&lt;$0.0008 per album).
+   - **`claude-3-5-sonnet-20240620`**: Unrivaled artistic taste and typography styling if you prefer ultra-premium design variety.
 
 ## License
 

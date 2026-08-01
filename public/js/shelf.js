@@ -15,9 +15,11 @@ let isCenterPoppedOut = true;
 let pendingPopOutIndex = null;
 let overlayHideTimeout = null;
 
-const SPINE_WIDTH = 28;
-const CENTER_WIDTH = 300; // Matches the album-spine height exactly
-const GAP = 4;
+let SPINE_WIDTH = 28;
+let CENTER_WIDTH = 300;
+let GAP = 4;
+let currentScale = 300;
+let scaleMultiplier = 1.0;
 
 // Lazy import to avoid circular dependency
 function notify(msg, type) {
@@ -26,6 +28,28 @@ function notify(msg, type) {
 
 export async function initShelf() {
     const container = document.getElementById('shelf-container');
+    
+    window.addEventListener('shelfScaleChanged', (e) => {
+        const h = e.detail.scale || 300;
+        currentScale = h;
+        scaleMultiplier = h / 300;
+        SPINE_WIDTH = Math.round(28 * scaleMultiplier);
+        CENTER_WIDTH = h;
+        GAP = Math.round(4 * Math.max(1, scaleMultiplier * 0.8));
+        
+        document.querySelectorAll('.album-spine').forEach(el => {
+            const baseW = parseFloat(el.dataset.baseWidth || 28);
+            const scaledW = Math.round(baseW * scaleMultiplier);
+            el.dataset.width = scaledW;
+            el.style.width = `${scaledW}px`;
+        });
+        
+        const box = document.getElementById('static-center-box');
+        if (box) {
+            box.style.width = `${CENTER_WIDTH}px`;
+            box.style.height = `${CENTER_WIDTH}px`;
+        }
+    });
     
     // Virtual Carousel Events - 1 album per notch on mouse wheel
     container.addEventListener('wheel', (e) => {
@@ -164,7 +188,9 @@ async function fetchSpine(el) {
         const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
         if (res.ok) {
             const data = await res.json();
-            const w = Math.min(64, Math.max(26, parseInt(data.spineWidth) || 28));
+            const baseW = Math.min(64, Math.max(26, parseInt(data.spineWidth) || 28));
+            const w = Math.round(baseW * scaleMultiplier);
+            el.dataset.baseWidth = baseW;
             el.dataset.width = w;
             el.style.width = `${w}px`;
             
@@ -172,6 +198,7 @@ async function fetchSpine(el) {
             if (!isNaN(idx) && allAlbums.length > 0) {
                 const realAlbum = allAlbums[idx % allAlbums.length];
                 if (realAlbum) {
+                    realAlbum.baseWidth = baseW;
                     realAlbum.width = w;
                     if (data.coverUrl) realAlbum.coverUrl = data.coverUrl;
                 }
@@ -206,6 +233,8 @@ function renderShelf() {
     const centerBox = document.createElement('div');
     centerBox.id = 'static-center-box';
     centerBox.className = 'active';
+    centerBox.style.width = `${CENTER_WIDTH}px`;
+    centerBox.style.height = `${CENTER_WIDTH}px`;
     
     const centerArt = document.createElement('div');
     centerArt.id = 'center-box-art';
@@ -306,6 +335,11 @@ function renderShelf() {
         el.dataset.artist = album.artist;
         el.dataset.image = album.image || '';
         el.dataset.index = index;
+        const initBaseW = album.baseWidth || 28;
+        const initW = Math.round(initBaseW * scaleMultiplier);
+        el.dataset.baseWidth = initBaseW;
+        el.dataset.width = initW;
+        el.style.width = `${initW}px`;
         
         const bg = document.createElement('div');
         bg.className = 'album-spine-bg';

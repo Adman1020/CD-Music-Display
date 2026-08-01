@@ -126,6 +126,16 @@
                             <!-- Populated dynamically -->
                         </select>
                     </div>
+
+                    <div class="setting-group">
+                        <label for="setting-shelf-scale">Shelf Scale & Zoom: <span id="shelf-scale-val">300px (Compact)</span></label>
+                        <input type="range" id="setting-shelf-scale" min="300" max="700" step="20" value="300" style="width: 100%; cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #a0a0a0; margin-top: 4px;">
+                            <span>Compact (300px)</span>
+                            <span>Desktop (460px)</span>
+                            <span>Life-Size CD (700px)</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Column 2: API Config -->
@@ -151,21 +161,29 @@
                 <!-- Column 3: Spine Processing -->
                 <div class="settings-column">
                     <div class="setting-group">
-                        <label class="section-label">Spine Extraction & AI</label>
+                        <label class="section-label">Generative CD Spines & AI</label>
                         <div class="config-field" style="flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08);">
                             <div style="flex: 1;">
-                                <label for="config-spine-processing-toggle" style="margin-bottom: 4px; color: #fff; cursor: pointer;">Enable Spine Image Processing</label>
-                                <div style="font-size: 11px; color: #ff9b00; line-height: 1.35; font-weight: 500;">⚠️ <b>Experimental Feature:</b> Currently producing inconsistent or poor image quality from public archives. When disabled (default), reliable Spotify album cover slices are used.</div>
+                                <label for="config-spine-processing-toggle" style="margin-bottom: 4px; color: #fff; cursor: pointer;">Enable Generative AI Spines</label>
+                                <div style="font-size: 11px; color: #1ED760; line-height: 1.35; font-weight: 500;">🎨 <b>Vector SVG Engine:</b> Uses lightweight AI models to algorithmically design clean, life-size vector CD spines in standard single jewel-case dimensions. When disabled (default), reliable Spotify album cover slices are used.</div>
                             </div>
                             <input type="checkbox" id="config-spine-processing-toggle" style="width: auto; margin-top: 4px; cursor: pointer;">
                         </div>
 
                         <div id="spine-processing-options" style="display: none; margin-top: 16px;">
                             <div class="config-field" style="flex-direction: row; align-items: center; justify-content: space-between;">
-                                <label for="config-ai-toggle" style="margin-bottom: 0;">Use AI Vision</label>
+                                <label for="config-ai-toggle" style="margin-bottom: 0;">Use AI Vector Designer</label>
                                 <input type="checkbox" id="config-ai-toggle" style="width: auto;">
                             </div>
                             <div id="ai-settings-container" style="display: none; margin-top: 16px;">
+                                <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; margin-bottom: 14px; font-size: 11px; line-height: 1.4; color: #d0d0d0;">
+                                    <div style="font-weight: 600; color: #1ED760; margin-bottom: 6px;">💡 Low-Cost Generative AI Recommendations:</div>
+                                    <ul style="margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px;">
+                                        <li><b>Google Gemini:</b> Use <code>gemini-2.5-flash</code> (best reliable workhorse) or <code>gemini-3.0-flash-lite</code> (ultra-fast & cheapest PAYG).</li>
+                                        <li><b>OpenAI:</b> Use <code>gpt-4o-mini</code> (&lt;$0.0003 per album).</li>
+                                        <li><b>Anthropic Claude:</b> Use <code>claude-3-5-haiku-20241022</code> (&lt;$0.0008 per album) or <code>claude-3-5-sonnet-20240620</code>.</li>
+                                    </ul>
+                                </div>
                                 <div class="config-field">
                                     <label for="config-ai-provider">AI Provider</label>
                                     <select id="config-ai-provider">

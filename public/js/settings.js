@@ -56,6 +56,15 @@ export async function initSettings() {
         saveSetting('deviceId', e.target.value);
     });
 
+    const scaleSlider = document.getElementById('setting-shelf-scale');
+    if (scaleSlider) {
+        scaleSlider.addEventListener('input', (e) => {
+            updateShelfScaleUI(e.target.value);
+        });
+        scaleSlider.addEventListener('change', (e) => {
+            saveSetting('shelfScale', e.target.value);
+        });
+    }
 
 
     // Spotify config save button
@@ -161,6 +170,12 @@ async function loadSettings() {
             if (settings.sleepTimeout) {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
+            }
+            if (settings.shelfScale) {
+                document.getElementById('setting-shelf-scale').value = settings.shelfScale;
+                updateShelfScaleUI(settings.shelfScale);
+            } else {
+                updateShelfScaleUI(300);
             }
             // Spine processing toggle defaults to OFF unless explicitly set to true
             const isSpineEnabled = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
@@ -360,11 +375,23 @@ async function saveSetting(key, value) {
         await fetch('/api/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, value })
+            body: JSON.stringify({ key, value: String(value) })
         });
     } catch (e) {
-        console.error("Failed to save setting", e);
+        console.error("Failed to save setting:", e);
     }
+}
+
+function updateShelfScaleUI(val) {
+    const label = document.getElementById('shelf-scale-val');
+    let text = `${val}px`;
+    if (val <= 340) text += " (Compact)";
+    else if (val <= 520) text += " (Desktop)";
+    else text += " (Life-Size CD)";
+    if (label) label.textContent = text;
+    
+    document.documentElement.style.setProperty('--shelf-height', `${val}px`);
+    window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: parseInt(val, 10) } }));
 }
 
 async function fetchDevices() {
