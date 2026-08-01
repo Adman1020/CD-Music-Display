@@ -128,12 +128,14 @@
                     </div>
 
                     <div class="setting-group">
-                        <label for="setting-shelf-scale">Shelf Scale & Zoom: <span id="shelf-scale-val">300px (Compact)</span></label>
-                        <input type="range" id="setting-shelf-scale" min="300" max="700" step="20" value="300" style="width: 100%; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #a0a0a0; margin-top: 4px;">
-                            <span>Compact (300px)</span>
-                            <span>Desktop (460px)</span>
-                            <span>Life-Size CD (700px)</span>
+                        <label for="setting-shelf-scale">Pixel-Perfect CD Rack Scale</label>
+                        <select id="setting-shelf-scale">
+                            <option value="240">Small — 240px Shelf Height (Compact Mode)</option>
+                            <option value="320" selected>Medium — 320px Shelf Height (Standard CD Display)</option>
+                            <option value="420">Large — 420px Shelf Height (Prominent View)</option>
+                        </select>
+                        <div style="font-size: 11px; color: #a0a0a0; margin-top: 4px;">
+                            Uses pixel-perfect authentic jewel-case framing without vector distortion or blurring.
                         </div>
                     </div>
                 </div>

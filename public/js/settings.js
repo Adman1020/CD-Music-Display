@@ -56,12 +56,10 @@ export async function initSettings() {
         saveSetting('deviceId', e.target.value);
     });
 
-    const scaleSlider = document.getElementById('setting-shelf-scale');
-    if (scaleSlider) {
-        scaleSlider.addEventListener('input', (e) => {
+    const scaleSelect = document.getElementById('setting-shelf-scale');
+    if (scaleSelect) {
+        scaleSelect.addEventListener('change', (e) => {
             updateShelfScaleUI(e.target.value);
-        });
-        scaleSlider.addEventListener('change', (e) => {
             saveSetting('shelfScale', e.target.value);
         });
     }
@@ -203,12 +201,12 @@ async function loadSettings() {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
             }
-            if (settings.shelfScale) {
-                document.getElementById('setting-shelf-scale').value = settings.shelfScale;
-                updateShelfScaleUI(settings.shelfScale);
-            } else {
-                updateShelfScaleUI(300);
-            }
+            let scaleVal = parseInt(settings.shelfScale || localStorage.getItem('shelfScale') || '320', 10);
+            if (scaleVal <= 280) scaleVal = 240;
+            else if (scaleVal >= 380) scaleVal = 420;
+            else scaleVal = 320;
+            document.getElementById('setting-shelf-scale').value = String(scaleVal);
+            updateShelfScaleUI(scaleVal);
             // Spine processing toggle defaults to OFF unless explicitly set to true
             const isSpineEnabled = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
             document.getElementById('config-spine-processing-toggle').checked = isSpineEnabled;
@@ -424,17 +422,36 @@ async function saveSetting(key, value) {
     }
 }
 
+const SPINE_SCALE_CONFIG = {
+    "240": { height: 240, width: 26, left: 4, top: 7, inlayW: 18, inlayH: 227, frame: "/images/spines/frame-240.png" },
+    "320": { height: 320, width: 35, left: 5, top: 10, inlayW: 25, inlayH: 302, frame: "/images/spines/frame-320.png" },
+    "420": { height: 420, width: 46, left: 7, top: 13, inlayW: 32, inlayH: 396, frame: "/images/spines/frame-420.png" }
+};
+
 function updateShelfScaleUI(val) {
-    const label = document.getElementById('shelf-scale-val');
-    let text = `${val}px`;
-    if (val <= 340) text += " (Compact)";
-    else if (val <= 520) text += " (Desktop)";
-    else text += " (Life-Size CD)";
-    if (label) label.textContent = text;
+    let numVal = parseInt(val, 10);
+    if (numVal <= 280) numVal = 240;
+    else if (numVal >= 380) numVal = 420;
+    else numVal = 320;
     
-    localStorage.setItem('shelfScale', val);
-    document.documentElement.style.setProperty('--shelf-height', `${val}px`);
-    window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: parseInt(val, 10) } }));
+    const scaleKey = String(numVal);
+    const cfg = SPINE_SCALE_CONFIG[scaleKey] || SPINE_SCALE_CONFIG["320"];
+    
+    localStorage.setItem('shelfScale', scaleKey);
+    
+    const selectEl = document.getElementById('setting-shelf-scale');
+    if (selectEl && selectEl.value !== scaleKey) selectEl.value = scaleKey;
+    
+    const root = document.documentElement;
+    root.style.setProperty('--shelf-height', `${cfg.height}px`);
+    root.style.setProperty('--spine-width', `${cfg.width}px`);
+    root.style.setProperty('--inlay-left', `${cfg.left}px`);
+    root.style.setProperty('--inlay-top', `${cfg.top}px`);
+    root.style.setProperty('--inlay-width', `${cfg.inlayW}px`);
+    root.style.setProperty('--inlay-height', `${cfg.inlayH}px`);
+    root.style.setProperty('--spine-frame-url', `url("${cfg.frame}")`);
+    
+    window.dispatchEvent(new CustomEvent('shelfScaleChanged', { detail: { scale: cfg.height, width: cfg.width, config: cfg } }));
 }
 
 async function fetchDevices() {

@@ -15,11 +15,52 @@ let isCenterPoppedOut = true;
 let pendingPopOutIndex = null;
 let overlayHideTimeout = null;
 
-let SPINE_WIDTH = 28;
-let CENTER_WIDTH = 300;
-let GAP = 4;
-let currentScale = 300;
+let SPINE_WIDTH = 35;
+let CENTER_WIDTH = 320;
+let GAP = 5;
+let currentScale = 320;
 let scaleMultiplier = 1.0;
+
+const SPINE_SCALE_CONFIG = {
+    "240": { height: 240, width: 26, left: 4, top: 7, inlayW: 18, inlayH: 227, gap: 4, frame: "/images/spines/frame-240.png" },
+    "320": { height: 320, width: 35, left: 5, top: 10, inlayW: 25, inlayH: 302, gap: 5, frame: "/images/spines/frame-320.png" },
+    "420": { height: 420, width: 46, left: 7, top: 13, inlayW: 32, inlayH: 396, gap: 6, frame: "/images/spines/frame-420.png" }
+};
+
+function applyScaleConfig(val) {
+    let numVal = parseInt(val, 10);
+    if (numVal <= 280) numVal = 240;
+    else if (numVal >= 380) numVal = 420;
+    else numVal = 320;
+    
+    const cfg = SPINE_SCALE_CONFIG[String(numVal)] || SPINE_SCALE_CONFIG["320"];
+    currentScale = cfg.height;
+    scaleMultiplier = cfg.height / 320;
+    SPINE_WIDTH = cfg.width;
+    CENTER_WIDTH = cfg.height;
+    GAP = cfg.gap;
+    
+    const root = document.documentElement;
+    root.style.setProperty('--shelf-height', `${cfg.height}px`);
+    root.style.setProperty('--spine-width', `${cfg.width}px`);
+    root.style.setProperty('--inlay-left', `${cfg.left}px`);
+    root.style.setProperty('--inlay-top', `${cfg.top}px`);
+    root.style.setProperty('--inlay-width', `${cfg.inlayW}px`);
+    root.style.setProperty('--inlay-height', `${cfg.inlayH}px`);
+    root.style.setProperty('--spine-frame-url', `url("${cfg.frame}")`);
+    
+    document.querySelectorAll('.album-spine').forEach(el => {
+        el.dataset.width = SPINE_WIDTH;
+        el.style.width = `${SPINE_WIDTH}px`;
+        el.style.height = `${currentScale}px`;
+    });
+    
+    const box = document.getElementById('static-center-box');
+    if (box) {
+        box.style.width = `${CENTER_WIDTH}px`;
+        box.style.height = `${CENTER_WIDTH}px`;
+    }
+}
 
 // Lazy import to avoid circular dependency
 function notify(msg, type) {
@@ -29,37 +70,11 @@ function notify(msg, type) {
 export async function initShelf() {
     const container = document.getElementById('shelf-container');
     
-    // Immediately apply saved scale on app startup so center cover art and spines size correctly
-    const savedScale = parseInt(localStorage.getItem('shelfScale') || document.documentElement.style.getPropertyValue('--shelf-height') || 300, 10);
-    if (savedScale && !isNaN(savedScale)) {
-        currentScale = savedScale;
-        scaleMultiplier = savedScale / 300;
-        SPINE_WIDTH = Math.round(28 * scaleMultiplier);
-        CENTER_WIDTH = savedScale;
-        GAP = Math.round(4 * Math.max(1, scaleMultiplier * 0.8));
-        document.documentElement.style.setProperty('--shelf-height', `${savedScale}px`);
-    }
+    const savedScale = parseInt(localStorage.getItem('shelfScale') || document.documentElement.style.getPropertyValue('--shelf-height') || 320, 10);
+    applyScaleConfig(savedScale);
     
     window.addEventListener('shelfScaleChanged', (e) => {
-        const h = e.detail.scale || 300;
-        currentScale = h;
-        scaleMultiplier = h / 300;
-        SPINE_WIDTH = Math.round(28 * scaleMultiplier);
-        CENTER_WIDTH = h;
-        GAP = Math.round(4 * Math.max(1, scaleMultiplier * 0.8));
-        
-        document.querySelectorAll('.album-spine').forEach(el => {
-            const baseW = parseFloat(el.dataset.baseWidth || 28);
-            const scaledW = Math.round(baseW * scaleMultiplier);
-            el.dataset.width = scaledW;
-            el.style.width = `${scaledW}px`;
-        });
-        
-        const box = document.getElementById('static-center-box');
-        if (box) {
-            box.style.width = `${CENTER_WIDTH}px`;
-            box.style.height = `${CENTER_WIDTH}px`;
-        }
+        applyScaleConfig(e.detail.scale || 320);
     });
     
     // Virtual Carousel Events - 1 album per notch on mouse wheel
@@ -199,9 +214,7 @@ async function fetchSpine(el) {
         const res = await fetch(`/api/albums/${id}/spine?name=${encodeURIComponent(name)}&artist=${encodeURIComponent(artist)}`);
         if (res.ok) {
             const data = await res.json();
-            const baseW = Math.min(64, Math.max(26, parseInt(data.spineWidth) || 28));
-            const w = Math.round(baseW * scaleMultiplier);
-            el.dataset.baseWidth = baseW;
+            const w = SPINE_WIDTH;
             el.dataset.width = w;
             el.style.width = `${w}px`;
             
@@ -209,7 +222,6 @@ async function fetchSpine(el) {
             if (!isNaN(idx) && allAlbums.length > 0) {
                 const realAlbum = allAlbums[idx % allAlbums.length];
                 if (realAlbum) {
-                    realAlbum.baseWidth = baseW;
                     realAlbum.width = w;
                     if (data.coverUrl) realAlbum.coverUrl = data.coverUrl;
                 }
@@ -408,19 +420,14 @@ function renderShelf() {
     displayAlbums.forEach((album, index) => {
         let el = document.createElement('div');
         
-        // Randomize the spine frame gloss out of 3 options
-        const frameClass = 'frame-' + (Math.floor(Math.random() * 3) + 1);
-        el.className = `album-spine ${frameClass}`;
+        el.className = 'album-spine';
         el.dataset.id = album.id;
         el.dataset.name = album.name;
         el.dataset.artist = album.artist;
         el.dataset.image = album.image || '';
         el.dataset.index = index;
-        const initBaseW = album.baseWidth || 28;
-        const initW = Math.round(initBaseW * scaleMultiplier);
-        el.dataset.baseWidth = initBaseW;
-        el.dataset.width = initW;
-        el.style.width = `${initW}px`;
+        el.dataset.width = SPINE_WIDTH;
+        el.style.width = `${SPINE_WIDTH}px`;
         
         const bg = document.createElement('div');
         bg.className = 'album-spine-bg';

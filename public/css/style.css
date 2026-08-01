@@ -20,7 +20,13 @@
     --radius-lg: 20px;
     
     --shadow-glow: 0 0 40px rgba(29, 185, 84, 0.15);
-    --shelf-height: 300px;
+    --shelf-height: 320px;
+    --spine-width: 35px;
+    --inlay-left: 5px;
+    --inlay-top: 10px;
+    --inlay-width: 25px;
+    --inlay-height: 302px;
+    --spine-frame-url: url('/images/spines/frame-320.png');
     
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -336,63 +342,40 @@ body {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 28px;
-    height: var(--shelf-height, 300px);
-    border-radius: 0;
+    width: var(--spine-width, 35px);
+    height: var(--shelf-height, 320px);
+    border-radius: 4px;
     overflow: hidden;
     cursor: pointer;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.5);
-    background-color: #222;
+    box-shadow: 3px 0 12px rgba(0,0,0,0.65);
+    background-color: transparent;
     will-change: transform, width, left;
 }
 
-/* 3D Polycarbonate Acrylic Jewel-Case Polish */
+/* 3D Polycarbonate Acrylic Jewel-Case Pixel-Perfect Frame Overlay */
 .album-spine::after {
     content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 10;
-    background: linear-gradient(
-        90deg, 
-        rgba(255, 255, 255, 0.25) 0%, 
-        rgba(255, 255, 255, 0.05) 12%, 
-        rgba(0, 0, 0, 0.0) 50%, 
-        rgba(0, 0, 0, 0.25) 88%, 
-        rgba(0, 0, 0, 0.65) 100%
-    ),
-    linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.35) 0%,
-        rgba(255, 255, 255, 0.0) 4%,
-        rgba(0, 0, 0, 0.0) 96%,
-        rgba(0, 0, 0, 0.5) 100%
-    );
-    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.4), inset -1px 0 0 rgba(0, 0, 0, 0.8);
-}
-
-.album-spine::before {
-    content: '';
-    position: absolute;
-    top: 4px;
-    bottom: 4px;
-    left: 0;
-    right: 0;
-    pointer-events: none;
-    z-index: 11;
-    border-top: 2px dashed rgba(0, 0, 0, 0.35);
-    border-bottom: 2px dashed rgba(0, 0, 0, 0.35);
+    background-image: var(--spine-frame-url);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
 }
 
 .album-spine-bg {
     position: absolute;
-    inset: 0;
+    top: var(--inlay-top, 10px);
+    left: var(--inlay-left, 5px);
+    width: var(--inlay-width, 25px);
+    height: var(--inlay-height, 302px);
     background-size: cover;
     background-position: left center;
     z-index: 0;
+    border-radius: 2px;
+    overflow: hidden;
 }
-
-
 
 .album-spine:active {
     transform: translateY(-5px);
@@ -400,7 +383,12 @@ body {
 
 .album-spine-text {
     position: absolute;
-    inset: 16px 0 16px 0;
+    top: var(--inlay-top, 10px);
+    left: var(--inlay-left, 5px);
+    width: var(--inlay-width, 25px);
+    height: var(--inlay-height, 302px);
+    padding: 6px 0;
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -566,12 +554,12 @@ body {
 
 @keyframes foldInToSpine {
     0% {
-        width: var(--shelf-height, 300px);
+        width: var(--shelf-height, 320px);
         opacity: 1;
         transform: translate(-50%, -50%) rotateY(0deg);
     }
     100% {
-        width: calc(28px * (var(--shelf-height, 300px) / 300));
+        width: var(--spine-width, 35px);
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
@@ -579,12 +567,12 @@ body {
 
 @keyframes foldOutFromSpine {
     0% {
-        width: calc(28px * (var(--shelf-height, 300px) / 300));
+        width: var(--spine-width, 35px);
         opacity: 0;
         transform: translate(-50%, -50%) rotateY(80deg);
     }
     100% {
-        width: var(--shelf-height, 300px);
+        width: var(--shelf-height, 320px);
         opacity: 1;
         transform: translate(-50%, -50%) rotateY(0deg);
     }
