@@ -338,6 +338,15 @@ async function processNextAlbum() {
         log(`Processing: ${workerStatus.currentAlbum}`);
         
         const settings = db.getSettings();
+        const enableSpine = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
+        if (!enableSpine) {
+            workerStatus.state = "Spine processing disabled (Using reliable Spotify cover slices)";
+            db.setSpineCache(targetAlbum.id, null, 'none', 28, null);
+            workerStatus.processedCount = db.getSpineCount();
+            timerId = setTimeout(processNextAlbum, 50); // Fast-forward through unpaid/unverified albums
+            return;
+        }
+
         const useAi = settings.useAiVision === true || settings.useAiVision === 'true';
         workerStatus.state = `Resolving artwork (${useAi ? 'Heuristics + AI Vision' : 'Heuristics only'})`;
         

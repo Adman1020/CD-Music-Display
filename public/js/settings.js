@@ -61,7 +61,24 @@ export async function initSettings() {
     // Spotify config save button
     document.getElementById('btn-save-config').addEventListener('click', saveSpotifyConfig);
     
-    // AI config toggle & save button
+    // Spine processing & AI config toggle & save buttons
+    const spineToggle = document.getElementById('config-spine-processing-toggle');
+    const spineOptions = document.getElementById('spine-processing-options');
+    spineToggle.addEventListener('change', async (e) => {
+        const enabled = e.target.checked;
+        spineOptions.style.display = enabled ? 'block' : 'none';
+        await saveSetting('enableSpineProcessing', enabled ? 'true' : 'false');
+        if (!enabled) {
+            // Automatically clear spine cache & trigger reprocess to revert all albums to clean Spotify slices
+            await fetch('/api/worker/clear-spines', { method: 'POST' });
+            await fetch('/api/worker/reprocess', { method: 'POST' });
+            import('./app.js').then(m => m.showNotification('Spine processing disabled — resetting library to Spotify cover slices', 'info'));
+        } else {
+            await fetch('/api/worker/reprocess', { method: 'POST' });
+            import('./app.js').then(m => m.showNotification('Spine processing enabled — restarting background scan', 'info'));
+        }
+    });
+
     const aiToggle = document.getElementById('config-ai-toggle');
     const aiContainer = document.getElementById('ai-settings-container');
     const diagBtn = document.getElementById('btn-open-worker-diagnostics');
@@ -145,6 +162,11 @@ async function loadSettings() {
                 document.getElementById('setting-sleep').value = settings.sleepTimeout;
                 updateSleepTimeout(settings.sleepTimeout);
             }
+            // Spine processing toggle defaults to OFF unless explicitly set to true
+            const isSpineEnabled = settings.enableSpineProcessing === 'true' || settings.enableSpineProcessing === true || settings.enableSpineProcessing === 1;
+            document.getElementById('config-spine-processing-toggle').checked = isSpineEnabled;
+            document.getElementById('spine-processing-options').style.display = isSpineEnabled ? 'block' : 'none';
+
             if (settings.useAiVision === 'true' || settings.useAiVision === true || settings.useAiVision === 1) {
                 document.getElementById('config-ai-toggle').checked = true;
                 document.getElementById('ai-settings-container').style.display = 'block';
@@ -257,7 +279,9 @@ async function saveAiConfig() {
         if (model) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiModel', value: model }) });
         if (rateLimit) await fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: 'aiRateLimit', value: rateLimit }) });
         
+        const isSpineEnabled = document.getElementById('config-spine-processing-toggle').checked ? 'true' : 'false';
         const isAiEnabled = document.getElementById('config-ai-toggle').checked ? 'true' : 'false';
+        await saveSetting('enableSpineProcessing', isSpineEnabled);
         await saveSetting('useAiVision', isAiEnabled);
         
         // Trigger worker restart/reprocess automatically
